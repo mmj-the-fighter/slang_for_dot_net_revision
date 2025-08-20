@@ -2,13 +2,11 @@
 \section{Introduction}
 Thanks to the availability of information and better tools writing a compiler has become just an excersise in software engineering. The compilers are not difficult programs to write. The various phases of compilers are easy to understand in an independent manner. The relationship is not purely sequential. It takes some time to put phases in perspective in the job of compilation of programs. 
 \section{Compiler Phases}
-The task of writing a compiler can be viewed in a top down fashion as shown in the diagram. Lexical analysis and parsing go together. AST stands for Abstract Syntax Tree. By walking the tree we can generate complete do interpretation.
-and this book as a pdf \\
+The task of writing a compiler can be viewed in a top down fashion as shown in the diagram. Lexical analysis and parsing go together. AST stands for Abstract Syntax Tree. By walking the tree we can generate code or do interpretation.\\
 \tikzset{
   block/.style = {rectangle, draw, text width=4cm, align=center, minimum height=1cm},
   arrow/.style = {thick,->,>=stealth}
 }
-
 \begin{tikzpicture}[node distance=1.5cm and 2cm, scale=0.15]
   \node (phase1) [block] {Lexical Analysis};      
   \node (phase2) [block, right=of phase1] {Parsing};
@@ -19,7 +17,7 @@ and this book as a pdf \\
   \draw [arrow] (phase3) -- (phase4);
  \end{tikzpicture}
  \section{Source code}
- The source code of each chapter in this book and the original SLANGForDotNet book is available at:
+ The source code of each chapter in this book and the original book is available at:
  \url{https://github.com/praseedpai/SlangForDotNet}
  
 This book is availabe at: 

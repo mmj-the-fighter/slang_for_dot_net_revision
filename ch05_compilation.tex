@@ -1,0 +1,1366 @@
+\chapter{Compilation to a .NET Executable}
+Till now , the Slang Compiler was interpreting the statements and expressions. In this step we will try to compile the source into .net IL ( .net intermediate Language ). 
+
+In this step, we are not going to make any change into the SLANG grammar. With Future ( support for Logical Expression, Relational Expression, Control structures and Procedures ) in mind, we will refactor the code. 
+
+\section{Stack Based Machine Model}
+.NET IL uses a Stack based machine model. Your Intel machines are register based. Stack based machine was touted as the future of machines in the early 1980s. What this basically means, the .NET CLR has got a evaluation stack for processing expressions and functions.... Read more about Reflection.Emit , CLR and IL to understand this.
+To give a quick feel of what is involed, let us think about the expression 2*(3+4) 
+This expression can be decomposed into
+\lstset{style=csharp}
+\begin{lstlisting}
+	Acc = ADD 3 and 4 ( Acc stands for accumulator )
+	Acc = Acc MUL 2 ;
+\end{lstlisting}
+
+if we are using a stack as an accumulator ( which .net does ) this can be written as
+\lstset{style=csharp}
+\begin{lstlisting}
+	PUSH 3 // now stack contains [ 3 ]
+	PUSH 4 // now stack constains [ 3, 4 ]
+	ADD // pop 4 , pop 3 , add , push result
+	// Now stack contains [ 7 ]
+	PUSH 2 // Now stack conains [ 7, 2 ]
+	MUL // pop 2 , pop 7 , multiply , push the result
+	// now stack contains the result [ 14 ]
+\end{lstlisting}
+when the same stuff was compiled into .net ...this is what we got .....
+\lstset{style=csharp}
+\begin{lstlisting}
+	// ---------------- IL output of 2*(3+4)
+	IL_0000: ldc.r8 2. // push 2 [ 2 ]
+	IL_0009: ldc.r8 3. // push 3 [ 2, 3 ]
+	IL_0012: ldc.r8 4. // push 4 [ 2, 3, 4]
+	IL_001b: add // pop 4 , pop 3 , add , push result [ 2, 7 ]
+	IL_001c: mul // pop 7 , pop 2 , mul , push result [ 14 ]
+\end{lstlisting}
+The above output was generated using ILDASM.exe utility. That will help to disassemble .net executables.
+\section{Execuatable}
+In this chapter we compile all of the slang program into one main module.\\
+To generate .NET executable , in the System.Reflection namespace there are some classes which we
+need to be familiar.
+\begin{verbatim}
+AssemblyBuilder
+ModuleBuilder
+TypeBuilder
+MethodBuilder
+\end{verbatim}
+
+From the name we can infer that these classes are based on GOF Builder pattern. The .NET StringBuilder class is another
+notable class which is based on Builder pattern. Consult Wikipedia or a decent book on design patterns to learn more about
+Builder Pattern. Later , we will be using Builder Pattern to Build (!) Procedure and Module from Program text.
+
+An Assembly ( .NET exe or .net DLL ) is composed of Collection of Modules. In most cases , we will have one module per
+assembly. Module will have collection of Types ( classes and structs ). Each Type will have collection of method. The
+hierarchical relationonship between these entities are given below.
+
+\begin{verbatim}
+Hierarchy is as follows..
+	Assembly
+		Module
+			Type
+				Method
+\end{verbatim}
+
+For each entity there is a corresponding builder available. Please include System.Reflection and System.Reflection.Emit to
+get access to these classes. How this has been used is given below.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// Get The App Domain
+AppDomain _app_domain = Thread.GetDomain();
+AssemblyName _asm_name = new AssemblyName();
+_asm_name.Name = "MyAssembly";
+
+// Save the Exe Name
+_name = name;
+
+// Create an instance of Assembly Builder
+_asm_builder = AppDomain.CurrentDomain.DefineDynamicAssembly(
+_asm_name,
+AssemblyBuilderAccess.RunAndSave);
+
+// Create a module builder , from AssemblyBuilder
+_module_builder = _asm_builder.DefineDynamicModule("DynamicModule1", _name, false);
+
+// Create a class by the name MainClass..
+// We compile the statements into a static method
+// of the type MainClass .. the entry point will
+// be called Main
+_type_builder = _module_builder.DefineType("MainClass");
+\end{lstlisting}
+Now one can use Typebuilder instance to add methods to the type.
+All the Executable creation logic has been included in a class by the name ExeGenerator.....
+\lstset{style=csharp}
+\begin{lstlisting}
+// ExeGenerator - Takes care of the creation of
+// .NET executable...
+public class ExeGenerator
+{
+	//Hierarchy is as follows..
+	// Assembly
+	// 		Module
+	// 			Type
+	// 				Method
+	// Refer to Reflection.Emit documentation for
+	// more details on creation of .NET executable
+	AssemblyBuilder _asm_builder = null;
+	ModuleBuilder _module_builder = null;
+	TypeBuilder _type_builder = null;
+
+	// Name of the Executable
+	string _name = "";
+	// Program to be Compiled...
+	TModule _p = null;
+	public ExeGenerator(TModule p, string exeName)
+	{
+		// The Program to be compiled...
+		_p = p;
+		
+		// Get The App Domain
+		AppDomain _app_domain = Thread.GetDomain();
+		AssemblyName _asm_name = new AssemblyName();
+		
+		// One can give a strong name , if we want
+		_asm_name.Name = "MyAssembly";
+		
+		// Save the Exe Name
+		_name = exeName;
+
+		// Create an instance of Assembly Builder
+		_asm_builder = 
+			AppDomain.CurrentDomain.DefineDynamicAssembly(
+				_asm_name,
+				AssemblyBuilderAccess.RunAndSave);
+		
+		// Create a module builder , from AssemblyBuilder
+		_module_builder = 
+		_asm_builder.DefineDynamicModule("DynamicModule1", 
+			_name, false);
+
+		// Create a class by the name MainClass..
+		// We compile the statements into a static method
+		// of the type MainClass .. the entry point will
+		// be called Main
+		// ExeGenerator will be called from TModule.Compile method
+		// We will add methods to the type MainClass as static method
+		_type_builder = _module_builder.DefineType("MainClass");
+	}
+	
+	// return the type builder....
+	public TypeBuilder type_bulder
+	{
+		get { return _type_builder;}
+	}
+	
+	public void Save()
+	{
+		// Note :- Call this (Save ) method only after
+		// Compilation of All statements....
+		_type_builder.CreateType();
+		
+		// Retrieve the Entry Point from TModule....
+		MethodBuilder mb = _p._get_entry_point("MAIN");
+		if (mb != null)
+		{
+			// Here we will set the Assembly 
+			// as a Console Application...
+			// We will also set the Entry Point....
+			_asm_builder.SetEntryPoint(mb, 
+				PEFileKinds.ConsoleApplication);
+		}
+		
+		// Write the Resulting Executable...
+		_asm_builder.Save(_name);
+	}
+}
+\end{lstlisting}
+\subsection{TModule.createExecutable}
+The Above class will be called from TModule.CreateExecutable ( more about TModule later )
+\lstset{style=csharp}
+\begin{lstlisting}
+public bool CreateExecutable(string name)
+{
+	// Create an instance of Exe Generator
+	// ExeGenerator takes a TModule and
+	// exe name as the Parameter...
+	_exe = new ExeGenerator(this,name);
+	// Compile The module...
+	Compile(null);
+	// Save the Executable...
+	_exe.Save();
+	return true;
+}
+\end{lstlisting}
+\section{Generation Context}
+To encapsulate the activities to be undertaken to Compile a Procedure to a static method, we have created a new class by the name, DNET\_EXECUTABLE\_GENERATION\_CONTEXT. For Compiling each Subroutine, an instance of this class will be created. This class contains\\
+a ) ArrayList to store local variables...
+\lstset{style=csharp}
+\begin{lstlisting}
+private ArrayList variables = new ArrayList();
+\end{lstlisting}
+
+b) Reference to an ILGenerator Object.
+\lstset{style=csharp}
+\begin{lstlisting}
+private ILGenerator ILout;
+\end{lstlisting}
+
+c)SymbolTable for doing type analysis
+\lstset{style=csharp}
+\begin{lstlisting}
+SymbolTable m_tab = new SymbolTable();
+\end{lstlisting}
+At this point of time , we are not supplying Procedure name to this class. We do not support user defined subroutines in this
+step. This class only generates a method by the name MAIN.
+By inspecting the Ctor of DNET\_EXECTUABLE\_GENERATION\_CONTEXT , we can get a fair idea of the usage of this
+class...
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public DNET_EXECUTABLE_GENERATION_CONTEXT
+(TModule program ,
+Procedure proc,
+TypeBuilder bld)
+{
+	// All the code in the Source module 
+	// is compiled into this procedure
+	_proc = proc;
+	
+	// TModule Object
+	_program = program;
+
+	// Handle to the type (MainClass )
+	_bld = bld;
+	
+	// The method does not take any procedure
+	System.Type[] s = null;
+	
+	// Return type is void
+	System.Type ret_type = null;
+	
+	// public static void Main()
+	_methinfo = _bld.DefineMethod("Main",
+		MethodAttributes.Public | 
+		MethodAttributes.Static,
+		ret_type, s);
+	// We have created the Method Prologue
+	// Get the handle to the code generator
+	ILout = _methinfo.GetILGenerator();
+}
+\end{lstlisting}
+Creataion of Local Variables is not a difficult task. The ILGenerator class has got a method called DeclareLocal for that.
+The following code snippet will explain the logic involved..
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public int DeclareLocal(System.Type type)
+{
+	// It is possible to create Local ( auto )
+	// Variables by Calling DeclareLocl method
+	// of ILGenerator... this returns an integer
+	// We store this integer value in the variables
+	// collection...
+	LocalBuilder lb = ILout.DeclareLocal(type);
+
+	// Now add the integer value associated with the
+	// variable to variables collection...
+	return variables.Add(lb);
+}
+\end{lstlisting}
+
+The full code of DNET\_EXECUTABLE\_GENERATION\_CONTEXT class is given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+//DNET_EXECUTABLE_GENERATION_CONTEXT 
+//is for generating
+//CLR executable
+
+public class DNET_EXECUTABLE_GENERATION_CONTEXT
+{
+	// ILGenerator Object
+	private ILGenerator ILout;
+	
+	// Auto (Local) Variable support
+	// Stores the index return by DefineLocal
+	// method of MethodBuilder
+	private ArrayList variables 
+		= new ArrayList();
+
+	// Symbol Table for storing Types and
+	// doing the type analysis
+	SymbolTable m_tab 
+		= new SymbolTable();
+	
+	// CLR Reflection.Emit.MethodBuilder
+	MethodBuilder _methinfo = null;
+	
+	// CLR Type Builder ( useful for creating
+	// classes in the run time
+	TypeBuilder _bld=null;
+
+	// Procedure to compiled
+	Procedure _proc = null;
+	// Program to be compiled...
+	TModule _program;
+	public DNET_EXECUTABLE_GENERATION_CONTEXT
+		(TModule program ,
+		Procedure proc,
+		TypeBuilder bld)
+	{
+		// All the code in the Source module 
+		// is compiled
+		// into this procedure
+		_proc = proc;
+		
+		// TModule Object
+		_program = program;
+		
+		// Handle to the type (MainClass )
+		_bld = bld;
+		
+		// The method does not take any procedure
+		System.Type[] s = null;
+		
+		// Return type is void
+		System.Type ret_type = null;
+
+		// public static void Main()
+		_methinfo = _bld.DefineMethod("Main",
+			MethodAttributes.Public | 
+			MethodAttributes.Static,
+			ret_type, s);
+		
+		// We have created the Method Prologue
+		// Get the handle to the code generator
+		ILout = _methinfo.GetILGenerator();
+	}
+	
+	public string MethodName
+	{
+		get{return _proc.Name ;}
+	}
+ 
+	public MethodBuilder MethodHandle
+	{
+		get{return _methinfo;}
+	}
+	
+	public TypeBuilder TYPEBUILDER
+	{
+		get{return _bld;}
+	}
+
+	public SymbolTable TABLE
+	{
+		get{return m_tab;}
+	}
+	
+	public ILGenerator CodeOutput
+	{	
+		get{return ILout;}
+	}
+	
+	public int DeclareLocal(System.Type type)
+	{
+		// It is possible to create Local ( auto )
+		// Variables by Calling DeclareLocl method
+		// of ILGenerator... this returns an integer
+		// We store this integer value in the variables
+		// collection...
+		LocalBuilder lb = ILout.DeclareLocal(type);
+		
+		// Now add the integer value associated with the
+		// variable to variables collection...
+		return variables.Add(lb);
+	}
+	
+	public LocalBuilder GetLocal(int s)
+	{
+		return variables[s] as LocalBuilder;
+	}
+}
+\end{lstlisting}
+\clearpage
+\section{Compiling Expressions}
+\subsection{Exp}
+To support compilation into .NET IL for expressions, we have an addional method appropriately named Compile to the Exp base class.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// In this Step , we add two more methods to the Exp class
+// TypeCheck => To do Type analysis
+// get_type => Type of this node
+public abstract class Exp
+{
+	public abstract SYMBOL_INFO Evaluate(
+	RUNTIME_CONTEXT cont);
+	
+	public abstract TYPE_INFO TypeCheck(
+	COMPILATION_CONTEXT cont);
+	
+	public abstract TYPE_INFO get_type();
+	
+	// Added in the STEP 5 for .NET IL 
+	// code generation
+	public abstract bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont);
+}
+\end{lstlisting}
+This additional method takes a \\
+DNET\_EXECUTABLE\_GENERATION\_CONTEXT as the parameter.
+\subsection{NumericConstant}
+To generate Code for Loading a NumericConstant ....this what we one has to do ....
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Emit LDC_R8 => Load Constant Real 8
+	// IEEE 754 floating Point
+	// cont.CodeOutput will return ILGenerator of the
+	// current method...
+	cont.CodeOutput.Emit(OpCodes.Ldc_R8, 
+		info.dbl_val);
+	return true;
+}
+\end{lstlisting}
+\subsection{BooleanConstant}
+The code emitted for a BooleanConstant:
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Retrieve the IL Code generator and Emit
+	// LDC_I4 => Load Constant Integer 4
+	// We are planning to use a 32 bit long for Boolean
+	// True or False
+	cont.CodeOutput.Emit(OpCodes.Ldc_I4, 
+		(info.bol_val) ? 1 : 0);
+	return true;
+}
+\end{lstlisting}
+
+\subsection{StringLiteral}
+The code emitted for a StringLiteral:
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// For string emit
+	// LDSTR => Load String
+	cont.CodeOutput.Emit(OpCodes.Ldstr , 
+		info.str_val);
+	return true;
+}
+\end{lstlisting}
+\subsection{Variable}
+The Code emitted for loading a variable reference on to the stack:
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Retrieve the Symbol information from the
+	// Symbol Table. Symbol name is the key here..
+	SYMBOL_INFO info 
+		= cont.TABLE.Get(m_name);
+
+	// Give the Position to retrieve 
+	// the Local Variable Builder.
+	LocalBuilder lb 
+		= cont.GetLocal(info.loc_position);
+
+	// LDLOC => Load Local... we need to give
+	// a Local Builder as parameter
+	cont.CodeOutput.Emit(
+		OpCodes.Ldloc, lb);
+	return true;
+}
+\end{lstlisting}
+
+\subsection{BinaryPlus}
+The Code emitted for BinaryPlus (+) needs to query the operand to generate the appropriate code. If the Left and the right expression is numeric... it needs to Generate Add opcode. There is no appropriate operator for String Concatenation. One needs to use String.Concat method to do that....
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Compile the Left Expression
+	exp1.Compile(cont);
+	
+	// Compile the Right Expression
+	exp2.Compile(cont);
+
+	// Emit Add instruction
+
+	if (_type == TYPE_INFO.TYPE_NUMERIC)
+	{
+		cont.CodeOutput.Emit(OpCodes.Add);
+	}
+	else
+	{
+		// This is a string type..we need to call
+		// Concat method..
+		Type[] str2 = {
+			typeof(string),
+			typeof(string)
+		};
+		cont.CodeOutput.Emit(OpCodes.Call,
+			typeof(String).GetMethod("Concat", str2));
+	}
+	return true;
+}
+\end{lstlisting}
+For this routine to work correctly , one needs to call TypeCheck every time to update the type information on all nodes.. This polymorphic behavior forced us to call TypeCheck every time we finished parsing an expression.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+private Stmt 
+ParsePrintStatement(ProcedureBuilder ctx)
+{
+	GetNext();
+	Exp a = Expr(ctx);
+	
+	// Do the type analysis ...
+	a.TypeCheck(ctx.Context);
+	if (Current_Token != TOKEN.TOK_SEMI)
+	{
+		throw new Exception("; is expected");
+	}
+	return new PrintStatement(a);
+}
+\end{lstlisting}
+
+\subsection{BinaryMinus}
+The code generation of Subtract Operation is as follows.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	exp1.Compile(cont);
+	exp2.Compile(cont);
+	cont.CodeOutput.Emit(OpCodes.Sub);
+	return true;
+}
+\end{lstlisting}
+
+\subsection{UnaryMinus}
+The code emitted for UnaryMinus is as given below.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Compile the expression
+	exp1.Compile(cont);
+	
+	// Negate the value on the top of the
+	// stack
+	cont.CodeOutput.Emit(OpCodes.Neg);
+	return true;
+}
+\end{lstlisting}
+\section{Compiling Statements}
+\subsection{Stmt}
+To support the Compilation of statement into IL an additional method has been added to the Stmt base class.
+\lstset{style=csharp}
+\begin{lstlisting}
+public abstract class Stmt
+{
+	public abstract SYMBOL_INFO 
+	Execute(RUNTIME_CONTEXT cont);
+
+	// Added in the Step 5 for .net IL compilation
+	public abstract bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont);
+}
+\end{lstlisting}
+\subsection{PrintStatement}
+The Code emitted for PrintStatement is given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	// Compile the Expression
+	// The Output will be on the top of stack
+	exp1.Compile(cont);
+	
+	// Generate Code to Call Console.Write
+	System.Type typ = Type.GetType("System.Console");
+	Type[] Parameters = new Type[1];
+	TYPE_INFO tdata = exp1.get_type();
+	if (tdata == TYPE_INFO.TYPE_STRING)
+		Parameters[0] = typeof(string);
+	else if (tdata == TYPE_INFO.TYPE_NUMERIC)
+		Parameters[0] = typeof(double);
+	else
+		Parameters[0] = typeof(bool);
+	cont.CodeOutput.Emit(OpCodes.Call, 
+		typ.GetMethod("Write", Parameters));
+	return true;
+}
+\end{lstlisting}
+\subsection{VariableDeclStatement}
+The Code emitted for VariableDeclStatement is as follows.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+
+	// Retrieve the type from the SYMBOL_INFO
+	System.Type type 
+		= (m_inf.Type == TYPE_INFO.TYPE_BOOL) ?
+		typeof(bool) : 
+		(m_inf.Type == TYPE_INFO.TYPE_NUMERIC) ?
+			typeof(double) : 
+		typeof(string);
+
+	// Get the offset of the variable
+	int s = cont.DeclareLocal(type);
+
+	// Store the offset in the SYMBOL_INFO
+	m_inf.loc_position = s;
+	
+	// Add the variable into Symbol Table..
+	cont.TABLE.Add(m_inf);
+	return true;
+}
+\end{lstlisting}
+\subsection{AssignmentStatement}
+The code for the Assignment statement is as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	if (!exp1.Compile(cont))
+	{
+		throw new 
+		Exception(
+		"Compilation in error string");
+	}
+	SYMBOL_INFO info 
+		= cont.TABLE.Get(variable.Name);
+	LocalBuilder lb 
+		= cont.GetLocal(info.loc_position);
+	cont.CodeOutput.Emit(OpCodes.Stloc, lb);
+	return true;
+}
+\end{lstlisting}
+
+\section{PROC}
+To support additional language constructs , we had two additional base classes in this project. The class Procedure is to model a FUNCTION. At this point we compile all the statement into a Function. In future, we will support User defined Function.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Abstract base class for Procedure
+// All the statements in a Program ( Compilation unit )
+// will be compiled into a PROC
+public abstract class PROC
+{
+	public abstract SYMBOL_INFO 
+	Execute(RUNTIME_CONTEXT cont);
+	
+	public abstract bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont);
+}
+\end{lstlisting}
+\subsection{Procedure}
+The Concrete class Procedure implements in this interface.
+\lstset{style=csharp}
+\begin{lstlisting}
+public class Procedure : PROC
+{
+	// Procedure name ..which defaults to Main
+	// in the type MainClass
+	public string 
+		m_name;
+	
+	// Formal parameters...	
+	public ArrayList 
+		m_formals = null;
+		
+	// List of statements which comprises 
+	// the Procedure
+	public ArrayList 
+		m_statements = null;
+
+	// Local variables
+	public SymbolTable 
+		m_locals = null;
+
+	// return_value.... a hard coded zero 
+	// at this point of time..
+	public SYMBOL_INFO 
+		return_value = null;
+	
+
+	// TYPE_INFO => TYPE_NUMERIC
+	public TYPE_INFO 
+		_type = TYPE_INFO.TYPE_ILLEGAL;
+	
+	// Rest of the Code
+	
+}
+\end{lstlisting}
+Let us look at the Compile method of the Procedure class. Procedure is nothing but a collection of staements.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	foreach (Stmt e1 in m_statements)
+	{
+		e1.Compile(cont);
+	}
+	cont.CodeOutput.Emit(OpCodes.Ret);
+	return true;
+}
+\end{lstlisting}
+
+The Execute method of the Procedure is very similar to Compile method. Instead of Calling Compile method , Execute will delegate the call to Execute mathod of statement.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override SYMBOL_INFO 
+Execute(RUNTIME_CONTEXT cont)
+{
+	foreach (Stmt stmt in m_statements)
+		stmt.Execute(cont);
+	return null;
+}
+\end{lstlisting}
+
+\section{Module}
+Another interface defined is to support the concept of a module. Module ( at this point of time ) is just collection of
+statements. The collection of statements will be compiled into a Procedure. And the Procedure will embedded in a module.
+\footnote{When we support user defined Functions , the meaning of module will be changed a bit. Then the Module will become
+collection of Functions.} All the Functions will be compiled as static methods of a single type. One can easily extend the
+compiler to support classes.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// A bunch of statement is called a Compilation
+// unit at this point of time... STEP 5
+// In future , a Collection of Procedures will be
+// called a Compilation unit
+// Added in the STEP 5
+public abstract class 
+CompilationUnit
+{
+	public abstract SYMBOL_INFO Execute(
+	RUNTIME_CONTEXT cont);
+
+	public abstract bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont);
+}
+\end{lstlisting}
+Since there is a preexisting type called Module available in the .net class hierarchy, we will use the name TModule instead.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// A CodeModule is a Compilation Unit ..
+// At this point of time ..it is just a bunch
+// of statements...
+public class TModule : CompilationUnit
+{
+	// A Program is a collection of Procedures...
+	// Now , we support only global function...
+	private ArrayList m_procs=null;
+	// List of Compiled Procedures....
+	// At this point of time..only one procedure
+	// will be there....
+	private ArrayList compiled_procs = null;
+
+	// class to generate IL executable...
+	private ExeGenerator _exe = null;
+
+	// Ctor for the Program ...
+	public TModule(ArrayList procs)
+	{
+		m_procs = procs;
+	}
+	
+	public bool 
+	CreateExecutable(string name)
+	{
+		// Create an instance of Exe Generator
+		// ExeGenerator takes a TModule and
+		// exe name as the Parameter...
+		_exe = new ExeGenerator(this,name);
+		
+		// Compile The module...
+		Compile(null);
+		
+		// Save the Executable...
+		_exe.Save();
+		return true;
+	}
+	public override bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+	{
+	
+		compiled_procs = new ArrayList();
+	
+		foreach (Procedure p in m_procs)
+		{
+			DNET_EXECUTABLE_GENERATION_CONTEXT con
+			= new
+			DNET_EXECUTABLE_GENERATION_CONTEXT(
+				this,p, _exe.type_bulder);
+			compiled_procs.Add(con);
+			p.Compile(con);
+		}
+		return true;
+	}
+	
+	public override SYMBOL_INFO Execute(
+		RUNTIME_CONTEXT cont)
+	{
+		Procedure p = Find("Main");
+		if (p != null)
+		{
+			return p.Execute(cont);
+		}
+		return null;
+	}
+	
+	public MethodBuilder _get_entry_point(
+		string _funcname)
+	{
+		foreach (
+		DNET_EXECUTABLE_GENERATION_CONTEXT u 
+		in compiled_procs)
+		{
+			if (u.MethodName
+				.Equals(_funcname))
+			{
+				return u.MethodHandle;
+			}
+		}
+		return null;
+	}
+	
+	public Procedure Find(string str)
+	{
+		foreach (Procedure p in m_procs)
+		{
+			string pname = p.Name;
+			if (pname.ToUpper()
+			.CompareTo(str.ToUpper()) == 0)
+			return p;
+		}
+		return null;
+	}
+}
+\end{lstlisting}
+
+\section{Builders}
+To create TModule and Procedure Object , we need to Parse the statemeents. We can create the Objects only when we have
+finished the Parsing. We need to accumulate the requisite Objects before we create Procedure. Builder Pattern is a nice way
+to organize the code to do these kind of stuff.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Base class for all the Builder
+// AbstractBuilder
+// TModuleBuilder
+// ProcedureBuilder
+public class AbstractBuilder
+{
+}
+\end{lstlisting}
+\subsection{TModuleBuilder}
+The Source code of the Module Builder is given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+// A Builder for Creating a Module
+class TModuleBuilder : AbstractBuilder
+{
+	// Array of Procs
+	private ArrayList procs;
+
+	// Array of Function Prototypes
+	// not much use as of now...
+	private ArrayList protos=null;
+
+	// Ctor does not do much
+	public TModuleBuilder()
+	{
+		procs = new ArrayList();
+		protos = null;
+	}
+	
+	// Add Procedure
+	public bool Add(Procedure p)
+	{
+		procs.Add(p);
+		return true;
+	}
+
+	// Create Program
+	public TModule GetProgram()
+	{
+		return new TModule(procs);
+	}
+	
+	public Procedure GetProc(string name)
+	{
+		foreach (Procedure p in procs)
+		{
+			if (p.Name.Equals(name))
+			{
+				return p;
+			}
+		}
+		return null;
+	}
+}
+\end{lstlisting}
+\subsection{ProcedureBuilder}
+The source code of the ProcedureBuilder is given below...
+\lstset{style=csharp}
+\begin{lstlisting}
+	public class ProcedureBuilder
+		: AbstractBuilder
+	{
+
+		// Procedure name ..now it is hard coded
+		// to MAIN
+		private string proc_name = "";
+		
+		// Compilation context for type analysis
+		COMPILATION_CONTEXT ctx = null;
+
+		// Procedure does not take any argument..
+		ArrayList m_formals = null;
+		
+		// Array of Statements
+		ArrayList m_stmts = new ArrayList();
+
+		// Return Type of the procedure
+		TYPE_INFO inf = TYPE_INFO.TYPE_ILLEGAL;
+		public ProcedureBuilder(
+			string name, COMPILATION_CONTEXT _ctx)
+		{
+			ctx = _ctx;
+			proc_name = name;
+		}
+
+		public bool AddLocal(
+			SYMBOL_INFO info)
+		{
+			ctx.TABLE.Add(info);
+			return true;
+		}
+		
+		public TYPE_INFO TypeCheck(
+			Exp e)
+		{
+			return e.TypeCheck(ctx);
+		}
+
+		public void AddStatement(
+			Stmt st)
+		{
+			m_stmts.Add(st);
+		}
+		
+		public SYMBOL_INFO 
+		GetSymbol(string strname)
+		{
+			return ctx
+				.TABLE.Get(strname);
+		}
+
+		// Check the function Prototype
+		public bool 
+		CheckProto(string name)
+		{
+			return true;
+		}
+		
+		public TYPE_INFO TYPE
+		{
+			get{return inf;}
+			set{inf = value;}
+		}
+		
+		public SymbolTable TABLE
+		{
+			get{return ctx.TABLE;}
+		}
+		
+		public COMPILATION_CONTEXT 
+		Context
+		{
+			get{return ctx;}
+		}
+		
+		public string Name
+		{
+			get{return proc_name;}
+			set{proc_name = value;}
+		}
+		
+		public Procedure 
+		GetProcedure()
+		{
+			Procedure ret 
+			= new Procedure(proc_name,
+				m_stmts, ctx.TABLE, inf);
+			return ret;
+		}
+}
+\end{lstlisting}
+\section{Parse Process}
+The Parse Process in the RDParser modules starts from the DoParse Method.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public TModule DoParse()
+{
+	ProcedureBuilder p = 
+	new ProcedureBuilder(
+	"MAIN", 
+	new COMPILATION_CONTEXT());
+	
+	ArrayList stmts = Parse(p);
+	foreach (Stmt s in stmts)
+	{
+		p.AddStatement(s);
+	}
+	Procedure pc 
+		= p.GetProcedure();
+	prog.Add(pc);
+	return prog.GetProgram();
+}
+\end{lstlisting}
+\subsection{Using ParserBuilder}
+In this version all the methods in the Parser takes a ProcedureBuilder object as parameter...
+\lstset{style=csharp}
+\begin{lstlisting}
+private ArrayList 
+StatementList(ProcedureBuilder ctx)
+{
+	ArrayList arr = new ArrayList();
+	while (Current_Token 
+		!= TOKEN.TOK_NULL)
+	{
+		Stmt temp = Statement(ctx);
+		if (temp != null)
+		{
+			arr.Add(temp);
+		}
+	}
+	return arr;
+}
+\end{lstlisting}
+In the previous step , these routines were taking a COMPILATION\_CONTEXT as paramter. In this step , this object is encapsulated in ProcedureBuilder object.
+
+\section{Projects}
+Now onwards, we will have three projects in the solution.\\
+SLANG\_DOT\_NET $\rightarrow$ Compilation Engine\\
+SLANGCOMPILE $\rightarrow$ Calls the Compilation Engine to generate .NET executable\\
+SLANGINTERPRET $\rightarrow$ Calls the Compilation Engine to interpret the statements\\
+\subsection{SLANGCOMPILE}
+Let us take a look at the source code of SLANGCOMPILE.
+\lstset{style=csharp}
+\begin{lstlisting}
+using System;
+using System.Collections;
+using System.Linq;
+using System.Text;
+using System.IO;
+using SLANG_DOT_NET;
+namespace SLANGCOMPILE {
+class Caller
+{
+	// Driver routine to call the program script
+	static void TestFileScript(string filename)
+	{
+		if (filename == null)
+		return;
+		
+		//Read the contents from the file
+		StreamReader sr = new StreamReader(filename);
+		string programs2 = sr.ReadToEnd();
+		sr.Close();
+		sr.Dispose();
+		
+		//Creates the Parser Object
+		// With Program text as argument
+		RDParser pars = null;
+		pars = new RDParser(programs2);
+		TModule p = null;
+		p = pars.DoParse();
+		
+		// Now that Parse is Successul...
+		// Create an Executable...!
+		if (p.CreateExecutable("First.exe"))
+		{
+			Console.WriteLine(
+				"Creation of Executable is successul");
+			return;
+		}
+	}
+	
+	static void Main(string[] args)
+	{
+		if (args == null ||
+			args.Length != 1)
+		{
+			Console.WriteLine(
+				"SLANGCOMPILE <scriptname>\n");
+			return;
+		}
+		
+		TestFileScript(args[0]);
+		
+		//Wait for the Key Press
+		Console.Read();
+	}
+}
+}
+\end{lstlisting}
+\subsection{SLANGINTERPRET}
+The source code of the SLANGINTERPRET is as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Collections;
+using System.IO;
+using SLANG_DOT_NET;
+namespace CallSLANG{
+class Caller
+{
+
+	// Driver routine to call the program script
+	static void TestFileScript(string filename)
+	{
+		if (filename == null)
+		return;
+		
+		//Read the contents from the file
+		StreamReader sr 
+			= new StreamReader(filename);
+		string programs2 
+			= sr.ReadToEnd();
+		
+		//Creates the Parser Object
+		// With Program text as argument
+		RDParser pars = null;
+		pars = new RDParser(programs2);
+		TModule p = null;
+		p = pars.DoParse();
+		
+		// Now that Parse is Successul...
+		// Do a recursive interpretation...!
+		RUNTIME_CONTEXT f 
+			= new RUNTIME_CONTEXT(p);
+		SYMBOL_INFO fp 
+			= p.Execute(f);
+	}
+	
+	static void Main(string[] args)
+	{
+		if (args == null ||
+			args.Length != 1)
+		{
+			Console.WriteLine(
+				"SLANGINTERPRET <scriptname>\n");
+			return;
+		}
+		TestFileScript(args[0]);
+		
+		//Wait for the Key Press
+		Console.Read();
+	}
+}
+}
+\end{lstlisting}
+\section{Outputs}
+Let us check how our compiler has generated code for some scripts.
+\subsection{Example 1}
+\lstset{style=csharp}
+\begin{lstlisting}
+PRINTLINE 2*(3+4);
+\end{lstlisting}
+
+Using the ILDASM utility , here is what we get from our compiler...
+
+\lstset{style=csharp}
+\begin{lstlisting}
+.method public static void Main() cil managed
+{
+	.entrypoint
+	// Code size 35 (0x23)
+	.maxstack 3
+	IL_0000: ldc.r8 2.
+	IL_0009: ldc.r8 3.
+	IL_0012: ldc.r8 4.
+	IL_001b: add
+	IL_001c: mul
+	IL_001d: call void [mscorlib]System.Console::WriteLine(float64)
+	IL_0022: ret
+}
+// end of method MainClass::Main
+\end{lstlisting}
+\subsection{Example 2}
+String concatenation.
+\lstset{style=csharp}
+\begin{lstlisting}
+PRINT "Hello World" + " SL ";
+\end{lstlisting}
+
+The output generated by our compiler was as follows.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+.method public static void Main() cil managed
+{
+	.entrypoint
+	// Code size 21 (0x15)
+	.maxstack 2
+	IL_0000: ldstr "Hello World"
+	IL_0005: ldstr " SL "
+	IL_000a: call string [mscorlib]System.String::Concat(string, string)
+	IL_000f: call void [mscorlib]System.Console::Write(string)
+	IL_0014: ret
+} // end of method MainClass::Main
+\end{lstlisting}
+
+\subsection{Example 3}
+Unary expression.
+\lstset{style=csharp}
+\begin{lstlisting}
+Numeric a;
+String b;
+a = ---1;
+PrintLine a*4 + 10;
+\end{lstlisting}
+
+The code generated by the compiler is as follows.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+.method public static void Main() cil managed
+{
+	.entrypoint
+	// Code size 40 (0x28)
+	.maxstack 2
+	.locals init (float64 V_0,
+	string V_1)
+	IL_0000: ldc.r8 1.
+	IL_0009: neg
+	IL_000a: neg
+	IL_000b: neg
+	IL_000c: stloc.0
+	IL_000d: ldloc.0
+	IL_000e: ldc.r8 4.
+	IL_0017: mul
+	IL_0018: ldc.r8 10.
+	IL_0021: add
+	IL_0022: call void [mscorlib]System.Console::WriteLine(float64)
+	IL_0027: ret
+} // end of method MainClass::Main
+\end{lstlisting}
+
+\subsection{Example 4}
+The following script test allmost all the features of the compiler ( implemented at this point of time )
+\lstset{style=csharp}
+\begin{lstlisting}
+NUMERIC a; // Declare a Numeric variable
+a = 2*3+5* 30 + -(4*5+3); // Assign
+PRINTLINE a; // Dump a
+/
+/String concatenation
+PRINT "Hello " + "World";
+
+//Write a new line
+PRINTLINE "";
+
+//string data type
+STRING c;
+c = "Hello "; // assignment to string
+
+//assignment and concatenation
+C = C + "World";
+PRINTLINE c;
+
+//boolean variable
+BOOLEAN d;
+d= TRUE;
+PRINTLINE d;
+d= FALSE;
+PRINTLINE d;
+\end{lstlisting}
+
+The output is:
+
+\lstset{style=csharp}
+\begin{lstlisting}
+.method public static void Main() cil managed
+{
+	.entrypoint
+	// Code size 156 (0x9c)
+	.maxstack 4
+	.locals init (float64 V_0,
+		string V_1,
+		bool V_2)
+	IL_0000: ldc.r8 2.
+	IL_0009: ldc.r8 3.
+	IL_0012: mul
+	IL_0013: ldc.r8 5.
+	IL_001c: ldc.r8 30.
+	IL_0025: mul
+	IL_0026: ldc.r8 4.
+	IL_002f: ldc.r8 5.
+	IL_0038: mul
+	IL_0039: ldc.r8 3.
+	IL_0042: add
+	IL_0043: neg
+	IL_0044: add
+	IL_0045: add
+	IL_0046: stloc.0
+	IL_0047: ldloc.0
+	IL_0048: call void [mscorlib]System.Console::WriteLine(float64)
+	IL_004d: ldstr "Hello "
+	IL_0052: ldstr "World"
+	IL_0057: call string [mscorlib]System.String::Concat(string,string)
+	IL_005c: call void [mscorlib]System.Console::Write(string)
+	IL_0061: ldstr ""
+	IL_0066: call void [mscorlib]System.Console::WriteLine(string)
+	IL_006b: ldstr "Hello "
+	IL_0070: stloc.1
+	IL_0071: ldloc.1
+	IL_0072: ldstr "World"
+	IL_0077: call string [mscorlib]System.String::Concat(string,string)
+	IL_007c: stloc.1
+	IL_007d: ldloc.1
+	IL_007e: call void [mscorlib]System.Console::WriteLine(string)
+	IL_0083: ldc.i4 0x1
+	IL_0088: stloc.2
+	IL_0089: ldloc.2
+	IL_008a: call void [mscorlib]System.Console::WriteLine(bool)
+	IL_008f: ldc.i4 0x0
+	IL_0094: stloc.2
+	IL_0095: ldloc.2
+	IL_0096: call void [mscorlib]System.Console::WriteLine(bool)
+	IL_009b: ret
+} // end of method MainClass::Main
+\end{lstlisting}

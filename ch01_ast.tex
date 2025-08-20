@@ -1,0 +1,203 @@
+\chapter{Abstract Syntax Tree}
+\section{Introduction}
+Thanks to the availability of information and better tools writing a compiler has become just an excersise in software engineering. The compilers are not difficult programs to write. The various phases of compilers are easy to understand in an independent manner. The relationship is not purely sequential. It takes some time to put phases in perspective in the job of compilation of programs. 
+\section{Compiler Phases}
+The task of writing a compiler can be viewed in a top down fashion as shown in the diagram. Lexical analysis and parsing go together. AST stands for Abstract Syntax Tree. By walking the tree we can generate complete do interpretation.
+and this book as a pdf \\
+\tikzset{
+  block/.style = {rectangle, draw, text width=4cm, align=center, minimum height=1cm},
+  arrow/.style = {thick,->,>=stealth}
+}
+
+\begin{tikzpicture}[node distance=1.5cm and 2cm, scale=0.15]
+  \node (phase1) [block] {Lexical Analysis};      
+  \node (phase2) [block, right=of phase1] {Parsing};
+  \node (phase3) [block, below=of phase2] {AST Creation};
+  \node (phase4) [block, left=of phase3] {Code generation or Interpretaion};
+  \draw [arrow] (phase1) -- (phase2);
+  \draw [arrow] (phase2) -- (phase3);
+  \draw [arrow] (phase3) -- (phase4);
+ \end{tikzpicture}
+ \section{Source code}
+ The source code of each chapter in this book and the original SLANGForDotNet book is available at:
+ \url{https://github.com/praseedpai/SlangForDotNet}
+ 
+This book is availabe at: 
+\url{https://github.com/mmj-the-fighter/slang_for_dot_net_revision}
+
+\clearpage
+\section{Abstract Syntax Tree}
+In computer science, an abstract syntax tree (AST), or just syntax tree, is a tree representation of the abstract (simplified) syntactic structure of source code written in a certain programming language. Each node of the tree denotes a construct occurring in the source code. The syntax is abstract in the sense that it does not represent every detail that appears in the real syntax. For instance, grouping parentheses is implicit in the tree structure, and a syntactic construct such as if cond then expr may be denoted by a single node with two branches.Most of you might not be aware of the fact that , programming languages are hierarchical in nature. We can model programming language constructs as classes. Trees are a natural data structure to represent
+most things hierarchical. As a case in the point , let us look a simple expression evaluator . The expression evaluator will support double
+precision floating point value as the operands.  The Operators supported are addition ( + ) , subtraction (-), multiplication (*) and division. The Object model support Unary operators (+ , - ) as well. We are planning to use a composition model for modeling an expression. In most imperative programming languages , an expression is something which you evaluate for it's value. Where
+as statements are something which you executes for it's effect.
+\clearpage
+\section{Exp class}
+Let us define an abstract class for Exp
+\lstset{style=csharp}
+\begin{lstlisting}
+// Abstract for Expression evaluation
+abstract class Exp
+{
+	public abstract double Evaluate(RUNTIME_CONTEXT cont);
+}
+\end{lstlisting}
+\section{Runtime Context class}
+For the time being RUNTIME\_CONTEXT is an empty class
+\lstset{style=csharp}
+\begin{lstlisting}
+// One can store the stack frame inside this class
+public class RUNTIME_CONTEXT
+{
+	public RUNTIME_CONTEXT()
+	{
+	}
+}
+\end{lstlisting}
+\section{Modeling Expression}
+Once you have declared the interface and it's parameters, we can create a hierarchy of classes to model an expression.
+\begin{verbatim}
+	class Exp // Base class for Expression
+		class NumericConstant // Numeric Value
+		class BinaryExp // Binary Expression
+		class UnaryExp // Unary Expression
+\end{verbatim}
+Take a look at the listing of NumericConstant class
+\clearpage
+\subsection{NumericConstant class}
+\lstset{style=csharp}
+\begin{lstlisting}
+// one can store number inside this class
+public class NumericConstant : Exp
+{
+   private double _value;
+   
+   // Construction does not do much, just keeps the
+   // value assigned to the private variable
+   public NumericConstant(double value)
+   {
+      _value = value;
+   }
+   
+   // While evaluating a numeric constant, return the _value
+   public override double Evaluate(RUNTIME_CONTEXT cont)
+   {
+    return _value;
+   }
+}
+\end{lstlisting}
+Since the class is derived from Exp , it ought to implement the Evaluate method. In the Numeric Constant node , we will store a IEEE 754 double precision value. While evaluating the tree , the node will return the value stored inside the object.
+\clearpage
+\subsection{Binary Expression}
+In a Binary Expression , one will have two Operands ( Which are themselves expressions of arbitary complexity ) and an Operator.
+\lstset{style=csharp}
+\begin{lstlisting}
+// This class supports Binary Operators like + , - , / , *
+public class BinaryExp : Exp
+{
+   private Exp _ex1, _ex2;
+   private OPERATOR _op;
+   public BinaryExp(Exp a, Exp b, OPERATOR op)
+   {
+      _ex1 = a;
+      _ex2 = b;
+      _op = op;
+   }
+
+   // While evaluating apply the operator after 
+   // evaluating the left and right operands
+   public override double Evaluate(RUNTIME_CONTEXT cont)
+   {
+      switch (_op)
+      {
+         case OPERATOR.PLUS:
+            return _ex1.Evaluate(cont) 
+            + _ex2.Evaluate(cont);
+         case OPERATOR.MINUS:
+            return _ex1.Evaluate(cont) 
+            - _ex2.Evaluate(cont);
+         case OPERATOR.DIV:
+            return _ex1.Evaluate(cont) 
+            / _ex2.Evaluate(cont);
+         case OPERATOR.MUL:
+            return _ex1.Evaluate(cont) 
+            * _ex2.Evaluate(cont);
+      }
+      return Double.NaN;
+   }
+}
+\end{lstlisting}
+\clearpage 
+\subsection{Unary Expression}
+In an unary expression , one will have an Operand ( which can be an expression of arbitary complexity ) and an Operator which can be applied on the Operand.
+\lstset{style=csharp}
+\begin{lstlisting}
+// This class supports Unary Operators like + , - , / , *
+public class UnaryExp : Exp
+{
+   private Exp _ex1;
+   private OPERATOR _op;
+   public UnaryExp(Exp a, OPERATOR op)
+   {
+      _ex1 = a;
+      _op = op;
+   }
+
+   // While evaluating apply the unary operator after 
+   // evaluating the operand.
+   public override double Evaluate(RUNTIME_CONTEXT cont)
+   {
+      switch (_op)
+      {
+         case OPERATOR.PLUS:
+            return _ex1.Evaluate(cont);
+         case OPERATOR.MINUS:
+            return -_ex1.Evaluate(cont);
+      }
+      return Double.NaN;
+   }
+}
+\end{lstlisting}
+\clearpage 
+\section{Main}
+In the CallSLANG project, we will include the SLANG\_DOT\_NET assembly before composing the expression.
+\\
+\lstset{style=csharp}
+\begin{lstlisting}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SLANG_DOT_NET; // include SLANG_DOT_NET assembly
+namespace CallSLANG
+{
+   class Program
+   {
+      static void Main(string[] args)
+      {
+         // Abstract Syntax Tree (AST) for 5*10
+         Exp e = new BinaryExp(
+            new NumericConstant(5),
+            new NumericConstant(10),
+            OPERATOR.MUL);
+         // Evaluate the Expression
+         Console.WriteLine(e.Evaluate(null));
+
+         // AST for -( (10 + (30 + 50 ) )
+         e = new UnaryExp(
+            new BinaryExp(new NumericConstant(10),
+            new BinaryExp(new NumericConstant(30),
+            new NumericConstant(50),
+               OPERATOR.PLUS),
+            OPERATOR.PLUS),
+            OPERATOR.MINUS);
+         // Evaluate the Expression
+         Console.WriteLine(e.Evaluate(null));
+
+         // Pause for a key stroke
+         Console.Read();
+      }
+   } 
+}
+\end{lstlisting}
+\clearpage 

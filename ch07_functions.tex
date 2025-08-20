@@ -1,0 +1,649 @@
+\chapter{Functions}
+This step will support Sub routine call. This will make the language useful for doing some tasks which were diffcult to acheive earlier.
+\section{Grammar}
+The Grammar for Function is
+The task of writing a compiler can be viewed in a top down fashion as shown in the diagram. Lexical analysis and parsing go together. AST stands for Abstract Syntax Tree. By walking the tree we can generate code or do interpretation.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+<Module> ::= {<Procedure>}+;
+<Procedure>::= FUNCTION <type> func_name '(' arglist ')'
+<stmts>
+END
+<type> := NUMERIC | STRING | BOOLEAN
+arglist ::= '(' {} ')' | '(' <type> arg_name [, arglist ] ')'
+\end{lstlisting}
+
+\section{Return Statement}
+We need to add one more class to Stmt hierarchy. The purpose is to implment the Return Value.
+\begin{verbatim}
+<retstmt> := Return <expr>;
+\end{verbatim}
+\lstset{style=csharp}
+\begin{lstlisting}
+class ReturnStatement : Stmt
+{
+	private Exp m_e1;
+	private SYMBOL_INFO inf = null;
+	public ReturnStatement(Exp e1)
+	{
+		m_e1 = e1;
+	}
+	
+	public override SYMBOL_INFO 
+	Execute(RUNTIME_CONTEXT cont)
+	{
+		inf = 
+		(m_e1 == null) ? 
+		null : m_e1.Evaluate(cont);
+		return inf;
+	}
+
+	public override bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+	{
+		if (m_e1 != null)
+		{
+			m_e1.Compile(cont);
+		}
+		cont.CodeOutput.Emit(OpCodes.Ret);
+		return true;
+	}
+}
+\end{lstlisting}
+
+\section{Call Expression}
+We need to Add an additional node to Exp class heirarchy to model Function call.
+\lstset{style=csharp}
+\begin{lstlisting}
+// The node to model Function Call
+// in the Expression hierarchy...
+class CallExp : Exp
+{
+	// Procedure Object
+	Procedure m_proc;
+
+	// ArrayList of Actuals
+	ArrayList m_actuals;
+	
+	// procedure name ...
+	string _procname;
+	
+	// Is it a Recursive Call ?
+	bool _isrecurse;
+	
+	// Return type of the Function
+	TYPE_INFO _type;
+
+	// Ctor to be called when we make a ordinary
+	// subroutine call
+	public CallExp(
+		Procedure proc, 
+		ArrayList actuals)
+	{
+		m_proc = proc;
+		m_actuals = actuals;
+	}
+
+	// Ctor to implement Recursive sub routine
+	
+	public CallExp(
+		string name, 
+		bool recurse, 
+		ArrayList actuals)
+	{
+		_procname = name;
+		if (recurse)
+			_isrecurse = true;
+		m_actuals = actuals;
+		
+		// For a recursive call Procedure Address will be null
+		// During the interpretation time we will resolve the
+		// call by look up...
+		// m_proc = cont.GetProgram().Find(_procname);
+		// This is a hack for implementing one pass compiler
+		m_proc = null;
+	}
+
+	public override SYMBOL_INFO 
+	Evaluate(RUNTIME_CONTEXT cont)
+	{
+		if (m_proc != null)
+		{
+			// This is a Ordinary Function Call
+			RUNTIME_CONTEXT ctx = 
+				new RUNTIME_CONTEXT(cont.GetProgram());
+			ArrayList lst = new ArrayList();
+			foreach (Exp ex in m_actuals)
+			{
+				lst.Add(ex.Evaluate(cont));
+			}
+			return m_proc.Execute(ctx, lst);
+		}
+		else
+		{
+			// Recursive function call...by the time we
+			// reach here..whole program has already been
+			// parsed. Lookup the Function name table and
+			// resolve the Address
+			//
+			//
+			m_proc = cont.GetProgram().Find(_procname);
+			RUNTIME_CONTEXT ctx = 
+			new RUNTIME_CONTEXT(cont.GetProgram());
+			ArrayList lst = new ArrayList();
+			foreach (Exp ex in m_actuals)
+			{
+				lst.Add(ex.Evaluate(cont));
+			}
+			return m_proc.Execute(ctx, lst);
+		}
+	}
+
+	public override TYPE_INFO 
+	TypeCheck(COMPILATION_CONTEXT cont)
+	{
+		if (m_proc != null)
+		{
+			_type = m_proc.TypeCheck(cont);
+		}
+		return _type;
+	}
+	
+	public override TYPE_INFO get_type()
+	{
+		return _type;
+	}
+
+	public override bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+	{
+		if (m_proc == null)
+		{
+			// if it is a recursive call..
+			// resolve the address...
+			m_proc = cont.GetProgram().Find(_procname);
+		}
+		string name = m_proc.Name;
+		TModule str = cont.GetProgram();
+		MethodBuilder bld = str._get_entry_point(name);
+		foreach (Exp ex in m_actuals)
+		{
+			ex.Compile(cont);
+		}
+		cont.CodeOutput.Emit(OpCodes.Call, bld);
+		return true;
+	}
+}
+\end{lstlisting}
+\section{Parser}
+To support the function call , we need to modify the Parser a bit to support Function Invocation.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public Exp Factor(ProcedureBuilder ctx)
+{
+	...
+	...
+	...
+	else if (Current_Token == TOKEN.TOK_UNQUOTED_STRING)
+	{
+		String str = base.last_str;
+		if (!prog.IsFunction(str))
+		{
+			// if it is not a function..it ought to
+			// be a variable...
+			SYMBOL_INFO inf = ctx.GetSymbol(str);
+			if (inf == null) {
+				throw 
+				new Exception(
+				"Undefined symbol");
+			}
+			GetNext();
+			return new Variable(inf);
+		}
+		
+		// P can be null , if we are parsing a
+		// recursive function call
+		//
+		Procedure p = prog.GetProc(str);
+		
+		// It is a Function Call
+		// Parse the function invocation
+		//
+		Exp ptr = ParseCallProc(ctx, p);
+		GetNext();
+		return ptr;
+	}
+	...
+	...
+	...
+}
+
+\end{lstlisting}
+\subsection{ParseCallProc}
+The ParseCallProc subroutine takes care of the compilation of Subroutine call.
+\lstset{style=csharp}
+\begin{lstlisting}
+	public Exp 
+	ParseCallProc(ProcedureBuilder pb, 
+		Procedure p)
+	{
+		GetNext();
+		if (Current_Token != TOKEN.TOK_OPAREN)
+		{
+			throw new 
+			Exception(
+			"Opening Parenthesis expected");
+		}
+		
+		GetNext();
+		ArrayList actualparams 
+			= new ArrayList();
+		while (true)
+		{
+			// Evaluate Each Expression in the
+			// parameter list and populate actualparams
+			// list
+			Exp exp = BExpr(pb);
+			
+			// do type analysis
+			exp.TypeCheck(pb.Context);
+			
+			// if , there are more parameters
+			if (Current_Token == TOKEN.TOK_COMMA)
+			{
+				actualparams.Add(exp);
+				GetNext();
+				continue;
+			}
+			if (Current_Token != TOKEN.TOK_CPAREN)
+			{
+				throw new Exception(
+					"Expected paranthesis");
+			}
+			else
+			{
+				// Add the last parameters
+				actualparams.Add(exp);
+				break;
+			}
+		}
+		
+		// if p is null , that means it is a
+		// recursive call. Being a one pass
+		// compiler , we need to wait till
+		// the parse process to be over to
+		// resolve the Procedure.
+		//
+		//
+		if (p != null)
+			return new CallExp(p, actualparams);
+		else
+			return new CallExp(pb.Name, 
+			true, // recurse !
+			actualparams);
+ 
+	}
+\end{lstlisting}
+\subsection{Parsing Function Definition}
+The actual routine to parse a subroutine is given in the ParseFunction method of the RDParser class.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// Parse A Single Function.
+ProcedureBuilder ParseFunction()
+{
+	// Create a Procedure builder Object
+	ProcedureBuilder p = new ProcedureBuilder("", 
+		new COMPILATION_CONTEXT());
+	if (Current_Token != TOKEN.TOK_FUNCTION)
+		return null;
+	GetNext();
+	
+	// return type of the Procedure ought to be
+	// Boolean , Numeric or String
+	if (!(Current_Token == TOKEN.TOK_VAR_BOOL ||
+		Current_Token == TOKEN.TOK_VAR_NUMBER ||
+		Current_Token == TOKEN.TOK_VAR_STRING))
+	{
+		return null;
+	}
+
+	//-------- Assign the return type
+	p.TYPE = (Current_Token == TOKEN.TOK_VAR_BOOL) ?
+		TYPE_INFO.TYPE_BOOL : (Current_Token == TOKEN.TOK_VAR_NUMBER) ?
+		TYPE_INFO.TYPE_NUMERIC : TYPE_INFO.TYPE_STRING;
+
+	// Parse the name of the Function call
+	GetNext();
+	
+	if (Current_Token != TOKEN.TOK_UNQUOTED_STRING)
+		return null;
+	
+	p.Name = this.last_str; // assign the name
+	
+	// ---------- Opening parenthesis for
+	// the start of <paramlist>
+	GetNext();
+
+	if (Current_Token != TOKEN.TOK_OPAREN)
+		return null;
+
+	//---- Parse the Formal Parameter list
+	FormalParameters(p);
+	
+	if (Current_Token != TOKEN.TOK_CPAREN)
+		return null;
+	GetNext();
+	
+	// --------- Parse the Function code
+	ArrayList lst = StatementList(p);
+	if (Current_Token != TOKEN.TOK_END)
+	{
+		throw new Exception(
+			"END expected");
+	}
+
+	// Accumulate all statements to
+	// Procedure builder
+	//
+	foreach (Stmt s in lst)
+	{
+		p.AddStatement(s);
+	}
+	return p;
+}
+\end{lstlisting}
+\subsection{Formal Params and Actual Params}
+The Method Formal Paramaters parse the formal parameter list and add to the Function Prototype list in the TModule class.
+In the function given below, a and b are called Formal Paramters...
+\begin{verbatim}
+FUNCTION BOOLEAN TEST( NUMERIC a , STRING b )
+	PRINTLINE a;
+	PRINTLINE b;
+	RETURN true;
+END
+\end{verbatim}
+The above function might be called with actual parameters ( can be expressions ) as follows:
+\begin{verbatim}
+TEST(10,"Hello World")
+\end{verbatim}
+We need to bind $10$ to $a$ and "Hello World" to $b$ before execution of the code..
+
+\lstset{style=csharp}
+\begin{lstlisting}
+void FormalParameters(ProcedureBuilder pb)
+{
+    if (Current_Token != TOKEN.TOK_OPAREN)
+        throw new Exception(
+		"Opening Parenthesis expected");
+    GetNext();
+
+    ArrayList lst_types = new ArrayList();
+
+    while (Current_Token == TOKEN.TOK_VAR_BOOL ||
+        Current_Token == TOKEN.TOK_VAR_NUMBER ||
+        Current_Token == TOKEN.TOK_VAR_STRING)
+    {
+        SYMBOL_INFO inf = new SYMBOL_INFO();
+
+        inf.Type = (Current_Token == TOKEN.TOK_VAR_BOOL) ?
+            TYPE_INFO.TYPE_BOOL : 
+			(Current_Token == TOKEN.TOK_VAR_NUMBER) ?
+            TYPE_INFO.TYPE_NUMERIC : TYPE_INFO.TYPE_STRING;
+
+        GetNext();
+        if (Current_Token != TOKEN.TOK_UNQUOTED_STRING)
+        {
+            throw new Exception("Variable Name expected");
+        }
+
+        inf.SymbolName = this.last_str;
+        lst_types.Add(inf.Type);
+        pb.AddFormals(inf);
+        pb.AddLocal(inf);
+
+
+        GetNext();
+
+        if (Current_Token != TOKEN.TOK_COMMA)
+        {
+            break;
+        }
+        GetNext();
+    }
+
+    prog.AddFunctionProtoType(
+		pb.Name, pb.TYPE, lst_types);
+    return;
+
+}
+\end{lstlisting}
+\subsection{Parsing Return Statement}
+To Parse Return Statement , we need to a block in the Statement method of RDParse class
+as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+case TOKEN.TOK_RETURN:
+	retval = ParseReturnStatement(ctx);
+	GetNext();
+	return retval;
+\end{lstlisting}
+
+\subsection{Parser Entry point}
+The Parser entry point is changed a bit to support Function call
+\lstset{style=csharp}
+\begin{lstlisting}
+//   The new Parser entry point
+public TModule DoParse()
+{
+    try
+    {
+        GetNext();   // Get The First Valid Token
+        return ParseFunctions();
+    }
+    catch (Exception e)
+    {
+        Console.WriteLine("Parse Error -------");
+        Console.WriteLine(e.ToString());
+        return null;
+    }
+}
+\end{lstlisting}
+A module is nothing but a list of functions. The above statement is computationally equivalent to:
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public TModule ParseFunctions()
+{
+
+    while (Current_Token == TOKEN.TOK_FUNCTION)
+    {
+        ProcedureBuilder b = ParseFunction();
+        Procedure s = b.GetProcedure();
+
+        if (s == null)
+        {
+            Console.WriteLine("Error While Parsing Functions");
+            return null;
+        }
+
+        prog.Add(s);
+        GetNext();
+    }
+
+    //  Convert the builder into a program
+    return prog.GetProgram();
+}
+\end{lstlisting}
+\section{Grammar}
+The Formal Grammar for SLANG at this point of time is as follows:
+
+\lstset{style=csharp}
+\begin{lstlisting}
+<Module> ::= {<Procedure>}+;
+<Procedure>::= FUNCTION <type> func_name '(' arglist ')'
+<stmts>
+END
+<type> := NUMERIC | STRING | BOOLEAN
+arglist ::= '(' {} ')' | '(' <type> arg_name [, arglist ] ')'
+<stmts> := { stmt }+
+{stmt} := <vardeclstmt> | <printstmt>|<printlnstmt>
+<assignmentstmt>|<callstmt>|<ifstmt>|
+<whilestmt> | <returnstmt>
+<vardeclstmt> ::= <type> var_name;
+<printstmt> := PRINT <expr>;
+<assignmentstmt>:= <variable> = value;
+<ifstmt>::= IF <expr> THEN <stmts> [ ELSE <stmts> ] ENDIF
+<whilestmt>::= WHILE <expr> <stmts> WEND
+<returnstmt>:= Return <expr>
+<expr> ::= <BExpr>
+<BExpr> ::= <LExpr> LOGIC_OP <BExpr>
+<LExpr> ::= <RExpr> REL_OP <LExpr>
+<RExpr> ::= <Term> ADD_OP <RExpr>
+<Term>::= <Factor> MUL_OP <Term>
+<Factor> ::= <Numeric> | <String> | TRUE | FALSE | <variable> | '(' <expr> ')' | {+|-|!}
+<Factor> | <callexpr>
+<callexpr> ::= funcname '(' actuals ')'
+<LOGIC_OP> := '&&' | '||'
+<REL_OP> := '>' |' < '|' >=' |' <=' |' <>' |' =='
+<MUL_OP> := '*' |' /'
+<ADD_OP> := '+' |' -'
+\end{lstlisting}
+\section{Sample Programs}
+\subsection{Helloworld.sl}
+Hello world in SLANG.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION BOOLEAN MAIN()
+	PRINT "Hello World";
+END
+\end{lstlisting}
+\subsection{onetohundred.sl}
+Print 1 to 100.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION BOOLEAN MAIN()
+	NUMERIC d;
+	d=0;
+	While ( d <= 100 )
+		PRINTLINE d;
+		d = d+1;
+	Wend
+END
+\end{lstlisting}
+\subsection{Discriminant.sl}
+Function to compute Discriminant in a quadratic equation.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION NUMERIC Quad( NUMERIC a , NUMERIC b , NUMERIC c )
+	NUMERIC n;
+	n = b*b - 4*a*c;
+	IF ( n < 0 ) THEN
+		return 0;
+	ELSE
+		IF ( n == 0 ) THEN
+			return 1;
+		ELSE
+			return 2;
+		ENDIF
+	ENDIF
+	return 0;
+END
+
+FUNCTION BOOLEAN MAIN()
+	NUMERIC d;
+	d= Quad(1,0-6,9);
+	IF ( d == 0 ) then
+		PRINT "No Roots";
+	ELSE
+		IF ( d == 1 ) then
+			PRINT "Discriminant is zero";
+		ELSE
+			PRINT "Two roots are available";
+		ENDIF
+	ENDIF
+END
+\end{lstlisting}
+\subsection{Fibonacci.sl}
+This code will print Fibonacci series between 1 and 100.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION BOOLEAN MAIN()
+	NUMERIC newterm;
+	NUMERIC prevterm;
+	NUMERIC currterm;
+	currterm = 1;
+	prevterm = 0;
+	newterm = currterm + prevterm;
+	PrintLine newterm;
+	while ( newterm < 1000 )
+		prevterm = currterm;
+		currterm = newterm;
+		newterm = currterm + prevterm;
+		PrintLine newterm;
+	wend
+END
+\end{lstlisting}
+\subsection{RecFibonacci.sl}
+Recursive Fibonacci routine.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION NUMERIC FIB( NUMERIC n )
+	IF ( n <= 1 ) then
+		return 1;
+	ELSE
+		RETURN FIB(n-1) + FIB(n-2);
+	ENDIF
+END
+
+FUNCTION BOOLEAN MAIN()
+	NUMERIC d;
+	d=0;
+	While ( d <= 10 )
+		PRINTLINE FIB(d);
+		d = d+1;
+	Wend
+END
+\end{lstlisting}
+
+\subsection{RecPrintFactorial.sl}
+Recursive Routine to Print Factorial of a number.
+\lstset{style=csharp}
+\begin{lstlisting}
+FUNCTION NUMERIC FACT( NUMERIC d )
+	IF ( d <= 0 ) THEN
+		return 1;
+	ELSE
+		return d*FACT(d-1);
+	ENDIF
+END
+
+FUNCTION BOOLEAN MAIN()
+	NUMERIC d;
+	d=0;
+	While ( d <= 10 )
+		PRINTLINE FACT(d);
+		d = d+1;
+	Wend
+END
+\end{lstlisting}
+\section{Using SLANG utils}
+The Compiler/Interpreter can be used as follows... Copy all the scripts to a particular directory...copy the Slanginterpret.exe and SlangCompile.exe to the same folder. Go to Visual studio command prompt.
+\subsection{To compile scripts}
+\begin{verbatim}
+SLANGCOMPILE <scriptname>
+\end{verbatim}
+This will produce first.exe which will be a .net executable. You can execute the file by typing first.exe at the command prompt.
+\begin{verbatim}
+Eg :-
+SlangCompile onetohundred.sl
+SlangCompile Fibrec.sl
+\end{verbatim}
+\subsection{To Interpret scripts}
+\begin{verbatim}
+SLANGINTERPRET <scriptname>
+\end{verbatim}
+There might be some bugs in the code...that is given as a HOMEWORK for you. !!!!!!
+

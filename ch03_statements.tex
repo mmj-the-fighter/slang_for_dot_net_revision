@@ -1,0 +1,299 @@
+\chapter{Statements}
+The crux of the SLANG4.net can be summed up in two sentences
+\begin{verbatim}
+1. Expression is what you evaluate for it's value.
+2. Statement is what you execute for it's effect (on variables).
+\end{verbatim}
+The above two maxims can be converted into a computational structure as follows:
+\lstset{style=csharp}
+\begin{lstlisting}
+// Expression is what you evaluate for it's value
+public abstract class Exp
+{
+	public abstract double Evaluate(RUNTIME_CONTEXT cont);
+}
+
+// Statement is what you Execute for it's Effect
+// on variables or lack of it
+public abstract class Stmt
+{
+	public abstract bool Execute(RUNTIME_CONTEXT con);
+}
+\end{lstlisting}
+
+\section{Print statement}
+Let us implement a Print statement for the SLANG4.net compiler. The basic idea is as follows you add a class to model a statement and since the class has to inherit from the Stmt ( abstract class ), it ought to implement Execute Method.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Implementation of Print Statement
+public class PrintStatement : Stmt
+{
+	// At this point of time, Print will
+	// spit the value of an Expression on the screen.
+	private Exp _ex;
+	
+	// Ctor just stores the expression passed as parameter
+	public PrintStatement(Exp ex)
+	{
+		_ex = ex;
+	}
+
+	// Execute method Evaluates the expression and
+	// spits the value to the console using
+	// Console.Write statement.
+	public override bool Execute(RUNTIME_CONTEXT con)
+	{
+		double a = _ex.Evaluate(con);
+		Console.Write(a.ToString());
+		return true;
+	}
+}
+\end{lstlisting}
+\section{PrintLine statement}
+Let us add a PrintLine statement as well. PrintLine implementation is not different from Print statement. The only difference is it emits a new line after the expression value.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Implementation of PrintLine Statement
+public class PrintLineStatement : Stmt
+{
+	private Exp _ex;
+	public PrintLineStatement(Exp ex)
+	{
+		_ex = ex;
+	}
+	
+	// Here we are calling Console.WriteLine to emit
+	// an additional new line .
+	public override bool Execute(RUNTIME_CONTEXT con)
+	{
+		double a = _ex.Evaluate(con);
+		Console.WriteLine(a.ToString());
+		return true;
+	}
+}
+\end{lstlisting}
+
+\section{Changes in the Parser}
+Once we have created to classes to implement Print and PrintLine statement, we need to modify our
+parser (frontend ) to support the statement in the language.\\
+\subsection{Changes in the Lexer}
+We are going to add few more tokens to support the Statements in the SLANG.\\
+\lstset{style=csharp}
+\begin{lstlisting}
+public enum TOKEN
+{
+	ILLEGAL_TOKEN = -1, // Not a Token
+	TOK_PLUS = 1, // '+'
+	TOK_MUL, // '*'
+	TOK_DIV, // '/'
+	TOK_SUB, // '-'
+	TOK_OPAREN, // '('
+	TOK_CPAREN, // ')'
+	TOK_DOUBLE, // 'number'
+	TOK_NULL, // End of string
+	TOK_PRINT, // Print Statement
+	TOK_PRINTLN, // PrintLine
+	TOK_UNQUOTED_STRING,
+	TOK_SEMI // ;
+}
+\end{lstlisting}
+In the Lexer.cs module, we add a new data structure to be used for Keyword lookup.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Keyword Table Entry
+public struct ValueTable
+{
+	public TOKEN tok; // Token id
+	public String Value; // Token string
+	public ValueTable(TOKEN tok, String Value)
+	{
+		this.tok = tok;
+		this.Value = Value;
+	}
+}
+\end{lstlisting}
+In the ctor of Lexer.cs, we will populate an array of ValueTables with Token and it's textual representation as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Keyword Table Entry
+public struct ValueTable
+{
+	_val = new ValueTable[2];
+	_val[0] = 
+	new ValueTable(TOKEN.TOK_PRINT, "PRINT");
+	_val[1] = 
+	new ValueTable(TOKEN.TOK_PRINTLN, "PRINTLINE");
+}
+\end{lstlisting}
+\subsection{Grammar}
+We need to add a new entrypoint into the RDParser.cs class to support statements. The grammar for the SLANG at this point of time ( to support statement ) is as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+<stmtlist> := { <statement> }+
+<statement> := <printstmt> | <printlinestmt>
+<printstmt> := print <expr >;
+<printlinestmt>:= printline <expr>;
+<Expr> ::= <Term> | Term { + | - } <Expr>
+<Term> ::= <Factor> | <Factor> {*|/} <Term>
+<Factor>::= <number> | ( <expr> ) | {+|-} <factor>
+\end{lstlisting}
+\subsection{Parser entry point}
+The new entry point to the parser module is as follows.
+\lstset{style=csharp}
+\begin{lstlisting}
+// The new Parser entry point
+public ArrayList Parse()
+{
+	GetNext(); // Get the Next Token
+	// Parse all the statements
+	return StatementList();
+}
+\end{lstlisting}
+\subsection{Statement List}
+The StatementList method implements the grammar given above. The BNF to source code translation is very easy and without much explanation it is given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+private ArrayList StatementList()
+{
+	ArrayList arr = new ArrayList();
+	while (Current_Token != TOKEN.TOK_NULL)
+	{
+		Stmt temp = Statement();
+		if (temp != null)
+		{
+			arr.Add(temp);
+		}
+	}
+	return arr;
+}
+\end{lstlisting}
+\subsection{Statement}
+The method Statement queries the statement type and parses the rest of the statement.
+ \lstset{style=csharp}
+ \begin{lstlisting}
+// This Routine Queries Statement Type
+// to take the appropriate Branch...
+// Currently, only Print and PrintLine statement
+// are supported..
+// if a line does not start with Print or PrintLine ..
+// an exception is thrown
+private Stmt Statement()
+{
+	Stmt retval = null;
+	switch (Current_Token)
+	{
+		case TOKEN.TOK_PRINT:
+			retval = ParsePrintStatement();
+			GetNext();
+			break;
+
+		case TOKEN.TOK_PRINTLN:
+			retval = ParsePrintLNStatement();
+			GetNext();
+			break;
+
+		default:
+			throw new Exception("Invalid statement");
+			break;
+	}
+	return retval;
+}
+
+// Parse the Print Staement .. The grammar is
+// PRINT <expr> ;
+// Once you are in this subroutine, we are expecting
+// a valid expression ( which will be compiled ) and a
+// semicolon to terminate the line..
+// Once Parse Process is successful, 
+// we create a PrintStatement
+// Object..
+private Stmt ParsePrintStatement()
+{
+	GetNext();
+	Exp a = Expr();
+	if (Current_Token != TOKEN.TOK_SEMI) {
+		throw 
+		new Exception("; is expected");
+	}
+	return new PrintStatement(a);
+}
+// Parse the PrintLine Staement .. The grammar is
+// PRINTLINE <expr> ;
+// Once you are in this subroutine, we are expecting
+// a valid expression ( which will be compiled ) and a
+// semi collon to terminate the line..
+// Once Parse Process is successful, we create 
+// a PrintLineStatement Object..
+private Stmt ParsePrintLNStatement()
+{
+	GetNext();
+	Exp a = Expr();
+	if (Current_Token != TOKEN.TOK_SEMI) {
+		throw 
+		new Exception("; is expected");
+	}
+	return new PrintLineStatement(a);
+}
+\end{lstlisting}
+\section{Main}
+Finally in the callSlang Project, I have invoked these routines to demonstrate how everything is put together.
+\lstset{style=csharp}
+\begin{lstlisting}
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Collections;
+using SLANG_DOT_NET;
+namespace CallSLANG
+{
+	class Program
+	{
+		static void TestFirstScript()
+		{
+			string a = 
+			"PRINTLINE 2*10;" + 
+			"\r\n" + 
+			"PRINTLINE 10;"+
+			"\r\n" +
+			"PRINT 2*10;"+
+			"\r\n";
+
+			RDParser p = 
+			new RDParser(a);
+
+			ArrayList arr = 
+			p.Parse();
+			foreach (object obj in arr)
+			{
+				Stmt s 
+				= obj as Stmt;
+				s.Execute(null);
+			}
+		}
+		
+		static void TestSecondScript()
+		{
+			string a = 
+			"PRINTLINE -2*10;" + 
+			"\r\n" + 
+			"PRINTLINE -10*-1;\r\n PRINT 2*10;\r\n";
+			RDParser p = new RDParser(a);
+			ArrayList arr = p.Parse();
+			foreach (object obj in arr)
+			{
+				Stmt s = obj as Stmt;
+				s.Execute(null);
+			}
+		}
+		
+		static void Main(string[] args)
+		{
+			// TestFirstScript();
+			TestSecondScript();
+			Console.Read();
+		}
+
+	} 
+}
+\end{lstlisting}

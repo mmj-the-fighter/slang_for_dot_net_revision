@@ -1,0 +1,1066 @@
+\chapter{Control Structures}
+In this step, we will support Control Structures like IF statement and While Statement. Before we begin, we need to extend the Exp hierarchy with Relational Expression and Logical Exp	ressions. 
+
+\section{Tokens}
+Let us extend the list of tokens with Additonal Tokens for Relational expressions, Logical Expressions and Control structures.
+\lstset{style=csharp}
+\begin{lstlisting}
+// ----------- Added in Step 6
+// for relational operator support
+TOK_EQ, // '=='
+TOK_NEQ, // '<>'
+TOK_GT, // '>'
+TOK_GTE, // '>='
+TOK_LT, // '<'
+TOK_LTE, // '<='
+TOK_AND, // '&&'
+TOK_OR, // '||'
+TOK_NOT, // '!'
+//------------ Added in Step 6 for
+// Control structures support
+TOK_IF, // IF
+TOK_THEN, // Then
+TOK_ELSE, // Else Statement
+TOK_ENDIF, // Endif Statement
+TOK_WHILE, // WHILE
+TOK_WEND // Wend Statement
+\end{lstlisting}
+
+Additonal Keywords supported include:
+\lstset{style=csharp}
+\begin{lstlisting}
+// -------------- Added in the step 6
+// -------------- To support control structures
+keyword[7] = new ValueTable(TOKEN.TOK_IF, "IF");
+keyword[8] = new ValueTable(TOKEN.TOK_WHILE, "WHILE");
+keyword[9] = new ValueTable(TOKEN.TOK_WEND, "WEND");
+keyword[10] = new ValueTable(TOKEN.TOK_ELSE, "ELSE");
+keyword[11] = new ValueTable(TOKEN.TOK_ENDIF, "ENDIF");
+keyword[12] = new ValueTable(TOKEN.TOK_THEN, "THEN");
+\end{lstlisting}
+
+We need to create a new enum for Relational Operators.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// Relational Operators
+public enum RELATION_OPERATOR
+{
+	TOK_EQ, // '=='
+	TOK_NEQ, // '<>'
+	TOK_GT, // '>'
+	TOK_GTE, // '>='
+	TOK_LT, // '<'
+	TOK_LTE, // '<='
+}
+\end{lstlisting}
+\section{Supporting Relational Expressions}
+Now we have got everything ready to write a class for Relational Expression.
+\subsection{R.E. Class Vars}
+\lstset{style=csharp}
+\begin{lstlisting}
+public class RelationExp : Exp
+{
+	// Which Operator
+	RELATION_OPERATOR m_op;
+	
+	// Left and Right Expression
+	private Exp ex1, ex2;
+	
+	// Type of this node
+	TYPE_INFO _type;
+
+	// Operand Types .. if operands are string
+	// we need to generate call to String.Compare
+	// method...
+	TYPE_INFO _optype;
+	
+	//Rest of the code...
+}
+\end{lstlisting}
+\subsection{Evaluate Routine}
+Let us take a look at the Evaluate routine. The Evaluate routine will give good insight into the implementation of Relational Expression. The basic idea is to Evaluate the Left Expression ( Exp1 ) and Right Expression (Exp2 ). Once the evaluation is over , one can query the Operand Type ( The Operands need to be of same type ) and perform the appropriae action.\\
+
+For Boolean and String type, only \texttt{==} and \texttt{<>} are supported. The TypeChecking routine makes sure that only these operands are permited for Boolean and String Type.
+
+
+\lstset{style=csharp}
+\begin{lstlisting}
+// The logic of this method is obvious...
+// Evaluate the Left and Right Expression...
+// Query the Type of the expressions and perform
+// appropriate action
+public override SYMBOL_INFO 
+Evaluate(RUNTIME_CONTEXT cont)
+{
+	SYMBOL_INFO eval_left 
+		= ex1.Evaluate(cont);
+	
+	SYMBOL_INFO eval_right 
+		= ex2.Evaluate(cont);
+	
+	SYMBOL_INFO ret_val 
+		= new SYMBOL_INFO();
+	
+	if (eval_left.Type 
+			== TYPE_INFO.TYPE_NUMERIC &&
+		eval_right.Type 
+			== TYPE_INFO.TYPE_NUMERIC)
+	{
+		ret_val.Type 
+			= TYPE_INFO.TYPE_BOOL;
+		ret_val.SymbolName = "";
+		if (m_op == RELATION_OPERATOR.TOK_EQ) {
+			ret_val.bol_val 
+			= eval_left.dbl_val == eval_right.dbl_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_NEQ) {
+			ret_val.bol_val 
+			= eval_left.dbl_val != eval_right.dbl_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_GT) {
+			ret_val.bol_val 
+			= eval_left.dbl_val > eval_right.dbl_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_GTE) {
+			ret_val.bol_val 
+			= eval_left.dbl_val >= eval_right.dbl_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_LTE) {
+			ret_val.bol_val 
+			= eval_left.dbl_val <= eval_right.dbl_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_LT) {
+			ret_val.bol_val 
+				= eval_left.dbl_val < eval_right.dbl_val;
+			return ret_val;
+		}
+	}
+	else if (eval_left.Type == TYPE_INFO.TYPE_STRING &&
+		eval_right.Type == TYPE_INFO.TYPE_STRING)
+	{
+		ret_val.Type = TYPE_INFO.TYPE_BOOL;
+		ret_val.SymbolName = "";
+		if (m_op == RELATION_OPERATOR.TOK_EQ)
+		{
+			ret_val.bol_val = ( String.Compare(
+			eval_left.str_val,
+			eval_right.str_val) == 0 ) ? true:false;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_NEQ)
+		{
+			ret_val.bol_val = String.Compare(
+			eval_left.str_val,
+			eval_right.str_val) != 0;
+		}
+		else
+		{
+			ret_val.bol_val = false;
+		}
+		return ret_val;
+	}
+	if (eval_left.Type == TYPE_INFO.TYPE_BOOL &&
+		eval_right.Type == TYPE_INFO.TYPE_BOOL)
+	{
+		ret_val.Type = TYPE_INFO.TYPE_BOOL;
+		ret_val.SymbolName = "";
+		if (m_op == RELATION_OPERATOR.TOK_EQ) {
+			ret_val.bol_val
+			= eval_left.bol_val == eval_right.bol_val;
+		}
+		else if (m_op == RELATION_OPERATOR.TOK_NEQ) {
+			ret_val.bol_val
+			= eval_left.bol_val != eval_right.bol_val;
+		}
+		else {
+			ret_val.bol_val = false;
+		}
+		return ret_val;
+	}
+	return null;
+}
+\end{lstlisting}
+\subsection{Type Checking}
+Let us take a look at TypeCheck routine of RelationalExp class.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Recursively check the type and bubble up the type
+// information to the top...
+public override TYPE_INFO 
+TypeCheck(COMPILATION_CONTEXT cont)
+{
+	TYPE_INFO eval_left = ex1.TypeCheck(cont);
+	TYPE_INFO eval_right = ex2.TypeCheck(cont);
+	if (eval_left != eval_right)
+	{
+		throw 
+		new Exception("Wrong Type in expression");
+	}
+	
+	if (eval_left == TYPE_INFO.TYPE_STRING &&
+		(!(m_op == RELATION_OPERATOR.TOK_EQ ||
+		m_op == RELATION_OPERATOR.TOK_NEQ)))
+	{
+		throw new 
+		Exception(
+		"Only == amd != supported for string type ");
+	}
+
+	if (eval_left == TYPE_INFO.TYPE_BOOL &&
+		(!(m_op == RELATION_OPERATOR.TOK_EQ ||
+		m_op == RELATION_OPERATOR.TOK_NEQ)))
+	{
+		throw new 
+		Exception(
+		"Only == amd != supported for boolean type ");
+	}
+ 
+	// store the operand type as well
+	_optype = eval_left;
+	_type = TYPE_INFO.TYPE_BOOL;
+	return _type;
+}
+\end{lstlisting}
+\subsection{Compile String R.E.}
+To Compile a RelationalExpression involving String Operands ( \texttt{==} and \texttt{<>} ), we need to generate calls to String.Compare method.
+\lstset{style=csharp}
+\begin{lstlisting}
+private bool 
+CompileStringRelOp(
+	DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	
+	// Compile the Left Expression
+	ex1.Compile(cont);
+
+	// Compile the Right Expression
+	ex2.Compile(cont);
+	// This is a string type..we need to call
+	// Compare method..
+	Type[] str2 = {
+		typeof(string),
+		typeof(string)
+	};
+	cont.CodeOutput.Emit(OpCodes.Call,
+		typeof(String).GetMethod("Compare", str2));
+	if (m_op == RELATION_OPERATOR.TOK_EQ)
+	{
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	}
+	else
+	{
+	
+		// This logic is bit convoluted...
+		// String.Compare will give 0 , 1 or -1
+		// First we will check whether the stack value
+		// is zero..
+		// This will put 1 on stack ..if value was zero
+		// after string.Compare
+		// Once again check against zero ...it is equivalent
+		// to negation
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	}
+	return true;
+}
+
+\subsection{Compile R.E.}
+The code generation for Boolean and Numeric values are similar. In the parsing phase itself, we flag error if some operands are applied on Booleans.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	if (_optype == TYPE_INFO.TYPE_STRING)
+	{
+		return CompileStringRelOp(cont);
+	}
+
+	// Compile the Left Expression
+	ex1.Compile(cont);
+
+	// Compile the Right Expression
+	ex2.Compile(cont);
+	
+	if (m_op == RELATION_OPERATOR.TOK_EQ)
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	else if (m_op == RELATION_OPERATOR.TOK_GT)
+		cont.CodeOutput.Emit(OpCodes.Cgt);
+	else if (m_op == RELATION_OPERATOR.TOK_LT)
+		cont.CodeOutput.Emit(OpCodes.Clt);
+	else if (m_op == RELATION_OPERATOR.TOK_NEQ)
+	{
+		// There is no IL instruction for !=
+		// We check for the equivality of the
+		// top two values on the stack ...
+		// This will put 0 ( FALSE ) or 1 (TRUE)
+		// on the top of stack...
+		// Load zero and check once again
+		// Check == once again...
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	}
+	else if (m_op == RELATION_OPERATOR.TOK_GTE)
+	{
+		// There is no IL instruction for >=
+		// We check for the < of the
+		// top two values on the stack ...
+		// This will put 0 ( FALSE ) or 1 (TRUE)
+		// on the top of stack...
+		// Load Zero and
+		// Check == once again...
+		cont.CodeOutput.Emit(OpCodes.Clt);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	}
+	else if (m_op == RELATION_OPERATOR.TOK_LTE)
+	{
+		// There is no IL instruction for <=
+		// We check for the > of the
+		// top two values on the stack ...
+		// This will put 0 ( FALSE ) or 1 (TRUE)
+		// on the top of stack...
+		// Load Zero and
+		// Check == once again...
+		cont.CodeOutput.Emit(OpCodes.Cgt);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+	}
+	return true;
+}
+\end{lstlisting}
+\section{Supporting Logical Expressions}
+SLANG is planning to support AND (\texttt{\&\&}), OR (\texttt{||}), and NOT (\texttt{!}). Operators. AND and OR are binary operators and NOT is a unary operator. We will be having a seperate class for NOT.
+\subsection{LogicalExp}
+\lstset{style=csharp}
+\begin{lstlisting}
+class LogicalExp : Exp
+{
+
+	// && ( AND ) , || ( OR )
+	TOKEN m_op;
+
+	// Operands
+	private Exp ex1, ex2;
+
+	// Type of the node...
+	TYPE_INFO _type;
+}
+\end{lstlisting}
+\subsection{Type checking}
+The Type checking logic makes sure that only Boolean types are given to Logical Operators as operands.
+\lstset{style=csharp}
+\begin{lstlisting}
+public override TYPE_INFO 
+TypeCheck(COMPILATION_CONTEXT cont)
+{
+	TYPE_INFO eval_left = ex1.TypeCheck(cont);
+	TYPE_INFO eval_right = ex2.TypeCheck(cont);
+	
+	// The Types should be Boolean...
+	// Logical Operators only make sense
+	// with Boolean Types
+	if (eval_left == eval_right &&
+	eval_left == TYPE_INFO.TYPE_BOOL )
+	{
+		_type = TYPE_INFO.TYPE_BOOL;
+		return _type;
+	}
+	else
+	{
+		throw new 
+		Exception(
+		"Wrong Type in expression");
+	}
+}
+\end{lstlisting}
+\subsection{Evaluate}
+The Evaluate Routine just apply the requisite operator after the evaluation of Left and Right Expression. The Type checking routine sees to it that both the operands are Boolean.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override SYMBOL_INFO 
+Evaluate(RUNTIME_CONTEXT cont)
+{
+	SYMBOL_INFO eval_left 
+		= ex1.Evaluate(cont);
+	SYMBOL_INFO eval_right 
+		= ex2.Evaluate(cont);
+	if (eval_left.Type == TYPE_INFO.TYPE_BOOL &&
+		eval_right.Type == TYPE_INFO.TYPE_BOOL)
+	{
+		SYMBOL_INFO ret_val = new SYMBOL_INFO();
+		ret_val.Type = TYPE_INFO.TYPE_BOOL;
+		ret_val.SymbolName = "";
+		
+		if (m_op == TOKEN.TOK_AND) {
+			ret_val.bol_val 
+			= ( eval_left.bol_val && 
+			eval_right.bol_val);
+		}
+		else if (m_op == TOKEN.TOK_OR) {
+			ret_val.bol_val 
+			= (eval_left.bol_val || 
+			eval_right.bol_val);
+		}
+		else {
+			return null;
+		}
+		return ret_val;
+	}
+	return null;
+}
+\end{lstlisting}
+\subsection{Compilation}
+The Compilation of Logical And and Logical Or to IL is simple. It is very similar to code generation for any other
+operator.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	ex1.Compile(cont);
+	ex2.Compile(cont);
+	
+	if (m_op == TOKEN.TOK_AND)
+		cont.CodeOutput.Emit(OpCodes.And);
+	
+	else if (m_op == TOKEN.TOK_OR) 
+		cont.CodeOutput.Emit(OpCodes.Or);
+	
+	return true;
+}
+\end{lstlisting}
+
+\section{LogicalNot}
+Logical Not (\texttt{!}) is a unary operator. We have created a special class for this operator.
+\lstset{style=csharp}
+\begin{lstlisting}
+class LogicalNot : Exp
+{
+	private Exp ex1;
+	TYPE_INFO _type;
+	
+	public LogicalNot(Exp e1)
+	{
+		ex1 = e1;
+	}
+	
+	public override SYMBOL_INFO 
+	Evaluate(RUNTIME_CONTEXT cont)
+	{
+		SYMBOL_INFO eval_left = ex1.Evaluate(cont);
+		if (eval_left.Type == TYPE_INFO.TYPE_BOOL)
+		{
+			SYMBOL_INFO ret_val = new SYMBOL_INFO();
+			ret_val.Type = TYPE_INFO.TYPE_BOOL;
+			ret_val.SymbolName = "";
+			ret_val.bol_val = !eval_left.bol_val;
+			return ret_val;
+		}
+		else
+		{
+			return null;
+		}
+	}
+ 
+	public override TYPE_INFO 
+	TypeCheck(COMPILATION_CONTEXT cont)
+	{
+		TYPE_INFO eval_left = ex1.TypeCheck(cont);
+		if (eval_left == TYPE_INFO.TYPE_BOOL)
+		{
+			_type = TYPE_INFO.TYPE_BOOL;
+			return _type;
+		}
+		else
+		{
+			throw new 
+			Exception(
+			"Wrong Type in expression");
+		}
+	}
+
+	public override bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+	{
+		ex1.Compile(cont);
+		// Check whether top of the stack is 1 ( TRUE )
+		// Check Whether the previous operation was successful
+		// Functionally equivalent to Logical Not
+
+		// Case Top of Stack is 1 (TRUE )
+		// ------------------------------
+		// Top of Stack => [ 1 ]
+		// LDC_I4 => [ 1 1 ]
+		// CEQ => [ 1 ]
+		// LDC_I4 => [ 1 0 ]
+		// CEQ => [ 0 ]
+		//
+		// Case Top of Stack is 0 (FALSE)
+		// -----------------------------
+		// Top of Stack => [ 0 ]
+		// LDC_I4 => [ 0 1 ]
+		// CEQ => [ 0 ]
+		// LDC_I4 => [ 0 0 ]
+		// CEQ => [ 1 ]
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 1);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 0);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+		return true;
+	}
+	
+	public override TYPE_INFO get_type()
+	{
+		return _type;
+	}
+}
+\end{lstlisting}
+\section{Lexical Analyzer}
+In the Lexical Analyzer , the code is written for supporing the new operators.
+\lstset{style=csharp}
+\begin{lstlisting}
+	case '!':
+		tok = TOKEN.TOK_NOT;
+		index++;
+		break;
+		
+	case '>':
+		if (IExpr[index + 1] == '=')
+		{
+			tok = TOKEN.TOK_GTE;
+			index += 2;
+		}
+		else
+		{
+			tok = TOKEN.TOK_GT;
+			index++;
+		}
+		break;
+
+	case '<':
+		if (IExpr[index + 1] == '=')
+		{
+			tok = TOKEN.TOK_LTE;
+			index += 2;
+		}
+		else if (IExpr[index + 1] == '>')
+		{
+			tok = TOKEN.TOK_NEQ;
+			index += 2;
+		}
+		else
+		{
+			tok = TOKEN.TOK_LT;
+			index++;
+		}
+		break;
+	
+	case '=':
+		if (IExpr[index + 1] == '=')
+		{
+			tok = TOKEN.TOK_EQ;
+			index += 2;
+		}
+		else
+		{
+			tok = TOKEN.TOK_ASSIGN;
+			index++;
+		}
+		break;
+		
+	case '&':
+		if (IExpr[index + 1] == '&')
+		{
+			tok = TOKEN.TOK_AND;
+			index += 2;
+		}
+		else
+		{
+			tok = TOKEN.ILLEGAL_TOKEN;
+			index++;
+		}
+		break;
+		
+	case '|':
+		if (IExpr[index + 1] == '|')
+		{
+			tok = TOKEN.TOK_OR;
+			index += 2;
+		}
+		else
+		{
+			tok = TOKEN.ILLEGAL_TOKEN;
+			index++;
+		}
+		break;
+		
+	case '/':
+		if (IExpr[index + 1] == '/')
+		{
+			SkipToEoln();
+			goto re_start;
+		}
+		else
+		{
+			tok = TOKEN.TOK_DIV;
+			index++;
+		}
+		break;
+		
+\end{lstlisting}
+\section{Adding If statement}
+\subsection{Grammar}
+The grammar for IF statement is:
+\lstset{style=csharp}
+\begin{lstlisting}
+IF <Bexpr> Then
+<statementlist>
+[ELSE <statementlist> ] optional
+ENDIF
+\end{lstlisting}
+This can be easily converted to a class which will look like the following.
+\lstset{style=csharp}
+\begin{lstlisting}
+ class IfStatement : Stmt
+{
+	// cond expression
+	// the type ought to be boolean
+	private Exp cond;
+	
+	// List of statements to be
+	// executed if cond is true
+	private ArrayList stmnts;
+
+	// List of statements to be
+	// executed if cond is false
+	private ArrayList else_part;
+	
+	//Rest of the code...
+}
+\end{lstlisting}
+
+\subsection{Execute}
+The Execute Routine of if is as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+// Interpret the if statement
+public override SYMBOL_INFO 
+Execute(RUNTIME_CONTEXT cont)
+{
+	// Evaluate the Condition
+    SYMBOL_INFO m_cond = cond.Evaluate(cont);
+
+    // if cond is not boolean..or evaluation failed
+    if (m_cond == null || 
+		m_cond.Type != TYPE_INFO.TYPE_BOOL) {
+		return null;
+	}
+	
+	if (m_cond.bol_val == true) {
+		// if cond is true
+		foreach (Stmt rst in stmnts)
+			rst.Execute(cont);
+	}
+	else if (else_part != null) {
+		// if cond is false and there is 
+		// else statement ..!
+		foreach (Stmt rst in else_part)
+			rst.Execute(cont);
+	}
+	
+	return null;
+}
+\end{lstlisting}
+\subsection{Compilation}
+The if statement generates code as given below.
+\lstset{style=csharp}
+\begin{lstlisting}
+public override bool 
+Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+{
+	Label true_label, false_label;
+	
+	// Generate Label for True
+	true_label = cont.CodeOutput.DefineLabel();
+	//
+	// Generate Label for False
+	false_label = cont.CodeOutput.DefineLabel();
+		
+	// Compile the expression
+	cond.Compile(cont);
+	
+	// Check whether the top of the stack contain
+	// 1 ( TRUE)
+	cont.CodeOutput.Emit(OpCodes.Ldc_I4, 1);
+	cont.CodeOutput.Emit(OpCodes.Ceq);
+	//
+	// if False , jump to false_label ...
+	// ie to else part
+	cont.CodeOutput.Emit(OpCodes.Brfalse, false_label);
+	//
+	foreach (Stmt rst in stmnts)
+	{
+		rst.Compile(cont);
+	}
+	// Once we have reached here...go
+	// to True label...
+	cont.CodeOutput.Emit(OpCodes.Br, true_label);
+	
+	// Place a Label here...if the condition evaluates
+	// to false , jump to this place..
+	cont.CodeOutput.MarkLabel(false_label);
+	if (else_part != null)
+	{
+		foreach (Stmt rst in else_part)
+		{
+			rst.Compile(cont);
+		}
+	}
+
+	// Place a label here...to mark the end of the
+	// IF statement
+	cont.CodeOutput.MarkLabel(true_label);
+	return true;
+}
+\end{lstlisting}
+
+\section{Adding While statement}
+The While statement is very similar to IF statement.
+\lstset{style=csharp}
+\begin{lstlisting}
+class WhileStatement : Stmt
+{
+	private Exp cond;
+	private ArrayList stmnts;
+	
+	public WhileStatement(Exp c, ArrayList s)
+	{
+		cond = c;
+		stmnts = s;
+	}
+	
+	public override SYMBOL_INFO 
+	Execute(RUNTIME_CONTEXT cont)
+	{
+		Test:
+		SYMBOL_INFO m_cond = cond.Evaluate(cont);
+		
+		if (m_cond == null || 
+			m_cond.Type != TYPE_INFO.TYPE_BOOL)
+			return null;
+			
+		if (m_cond.bol_val != true)
+			return null;
+			
+		SYMBOL_INFO tsp = null;
+		foreach (Stmt rst in stmnts)
+		{
+			tsp = rst.Execute(cont);
+			if (tsp != null)
+				return tsp;
+			
+		}
+		goto Test;
+	}
+	
+	public override bool 
+	Compile(DNET_EXECUTABLE_GENERATION_CONTEXT cont)
+	{
+		Label true_label, false_label;
+		true_label = cont.CodeOutput.DefineLabel();
+		false_label = cont.CodeOutput.DefineLabel();
+		cont.CodeOutput.MarkLabel(true_label);
+		cond.Compile(cont);
+		cont.CodeOutput.Emit(OpCodes.Ldc_I4, 1);
+		cont.CodeOutput.Emit(OpCodes.Ceq);
+		cont.CodeOutput.Emit(OpCodes.Brfalse, false_label);
+		foreach (Stmt rst in stmnts)
+		{
+			rst.Compile(cont);
+		}
+		cont.CodeOutput.Emit(OpCodes.Br, true_label);
+		cont.CodeOutput.MarkLabel(false_label);
+		return true;
+	}
+}
+\end{lstlisting}
+\section{Parser changes}
+The advent of While and IF automatically requires statement blocks. The StatementList routine should Parse until a Block is finished...
+At this point of time, Blocks can end when we reach:
+\begin{verbatim}
+WEND
+ENDIF
+ELSE
+<END OF INPUT>
+\end{verbatim}
+\subsection{Grammar}
+\lstset{style=csharp}
+\begin{lstlisting}
+<stmts> := { <stmt> }+
+{<stmt>} := <vardeclstmt> |
+	<printstmt>|<assignmentstmt>|
+	<ifstmt>| <whilestmt> |
+	<printlinestmt>
+
+<vardeclstmt> ::= <type> var_name;
+<printstmt> := PRINT <expr>;
+<assignmentstmt>:= <variable> = value;
+<ifstmt>::= IF <expr> THEN <stmts> [ ELSE <stmts> ] ENDIF
+<whilestmt>::= WHILE <expr> <stmts> WEND
+<type> := NUMERIC | STRING | BOOLEAN
+
+<expr> ::= <BExpr>
+<BExpr> ::= <LExpr> LOGIC_OP <BExpr>
+<LExpr> ::= <RExpr> REL_OP <LExpr>
+<RExpr> ::= <Term> ADD_OP <RExpr>
+<Term>::= <Factor> MUL_OP <Term>
+<Factor> ::= <Numeric> |
+	<String> | TRUE | FALSE | 
+	<variable> |
+	'(' <expr> ')' |
+	{+|-|!} <Factor>
+
+<LOGIC_OP> := '&&' | '||'
+<REL_OP> := '>' |' < '|' >=' |' <=' |' <>' |' =='
+<MUL_OP> := '*' |' /'
+<ADD_OP> := '+' |' -'
+\end{lstlisting}
+
+\subsection{StatementList}
+\lstset{style=csharp}
+\begin{lstlisting}
+private ArrayList 
+StatementList(ProcedureBuilder ctx)
+{
+	ArrayList arr = new ArrayList();
+	while (
+		(Current_Token != TOKEN.TOK_ELSE) &&
+		(Current_Token != TOKEN.TOK_ENDIF) &&
+		(Current_Token != TOKEN.TOK_WEND) &&
+		(Current_Token != TOKEN.TOK_NULL )
+	)
+	{
+		Stmt temp = Statement(ctx);
+		if (temp != null)
+		{
+			arr.Add(temp);
+		}
+	}
+	return arr;
+}
+\end{lstlisting}
+\subsection{Statement method snippet}
+In the Statement Method we need to add following code as well..
+\lstset{style=csharp}
+\begin{lstlisting}
+case TOKEN.TOK_IF:
+	retval = ParseIfStatement(ctx);
+	GetNext();
+	return retval;
+case TOKEN.TOK_WHILE:
+	retval = ParseWhileStatement(ctx);
+	GetNext();
+	return retval;
+\end{lstlisting}
+\subsection{ParseIFStatement}
+The Source code of ParseIFStatement is given below.
+
+\lstset{style=csharp}
+\begin{lstlisting}
+public Stmt 
+ParseIfStatement(ProcedureBuilder pb)
+{
+	GetNext();
+	ArrayList true_part = null;
+	ArrayList false_part = null;
+	
+	Exp exp = BExpr(pb); // Evaluate Expression
+
+	if (pb.TypeCheck(exp) != TYPE_INFO.TYPE_BOOL)
+	{
+		throw new Exception(
+		"Expects a boolean expression");
+	}
+	
+	if (Current_Token != TOKEN.TOK_THEN)
+	{
+		CSyntaxErrorLog.AddLine(
+		"Then Expected");
+		CSyntaxErrorLog.AddLine(
+		GetCurrentLine(SaveIndex()));
+		throw new CParserException(-100, 
+		"Then Expected", SaveIndex());
+	}
+	
+	GetNext();
+	true_part = StatementList(pb);
+	if (Current_Token == TOKEN.TOK_ENDIF)
+	{
+		return new IfStatement
+		(exp, true_part, false_part);
+	}
+	
+	if (Current_Token != TOKEN.TOK_ELSE)
+	{
+		throw new Exception("ELSE expected");
+	}
+	GetNext();
+	false_part = StatementList(pb);
+	if (Current_Token != TOKEN.TOK_ENDIF)
+	{
+		throw new Exception("END IF EXPECTED");
+	}
+	return new IfStatement(
+	exp, true_part, false_part);
+}
+\end{lstlisting}
+\subsection{ParseWhileStatement}
+The source code of ParseWhileStatement is given below
+\lstset{style=csharp}
+\begin{lstlisting}
+public Stmt 
+ParseWhileStatement(ProcedureBuilder pb)
+{
+	GetNext();
+	Exp exp = BExpr(pb);
+
+	if (pb.TypeCheck(exp) != TYPE_INFO.TYPE_BOOL)
+	{
+		throw new Exception(
+		"Expects a boolean expression");
+	}
+	
+	ArrayList body = StatementList(pb);
+	
+	if ((Current_Token != TOKEN.TOK_WEND))
+	{
+		CSyntaxErrorLog.AddLine("Wend Expected");
+		CSyntaxErrorLog.AddLine(
+			GetCurrentLine(SaveIndex()));
+		throw new CParserException(
+			-100, "Wend Expected", SaveIndex());
+	}
+	return new WhileStatement(exp, body);
+}
+\end{lstlisting}
+\section{Output}
+Given below is some sample script and corresponding IL code generated by the compiler....
+\lstset{style=csharp}
+\begin{lstlisting}
+//Print one to hundread
+NUMERIC I;
+I = 0;
+WHILE ( I <= 100 )
+ PRINTLINE I;
+I = I + 1;
+WEND
+
+//Print all even numbers
+I=0;
+WHILE ( I <= 100 )
+PRINTLINE I;
+I = I + 2;
+WEND
+
+//Testing String Comparison
+STRING s1;
+STRING s2;
+s1="Hello";
+s2="Hell"+"o";
+if ( s1 == s2 ) then
+PRINTLINE " S1 and S2 are equal ";
+endif
+IF !( s1 <> s2 ) then
+PRINTLINE "Tested Logical Not" ;
+endif
+
+\end{lstlisting}
+The IL code generated by the compiler is as follows
+
+\lstset{style=csharp}
+\begin{lstlisting}
+.method public static void Main() cil managed
+{
+	.entrypoint
+	// Code size 254 (0xfe)
+	.maxstack 8
+	.locals init (float64 V_0,string V_1,string V_2)
+	IL_0000: ldc.r8 0.0
+	IL_0009: stloc.0
+	IL_000a: ldloc.0
+	IL_000b: ldc.r8 100.
+	IL_0014: cgt
+	IL_0016: ldc.i4 0x0
+	IL_001b: ceq
+	IL_001d: ldc.i4 0x1
+	IL_0022: ceq
+	IL_0024: brfalse IL_0040
+	IL_0029: ldloc.0
+	IL_002a: call void [mscorlib]System.Console::WriteLine(float64)
+	IL_002f: ldloc.0
+	IL_0030: ldc.r8 1.
+	IL_0039: add
+	IL_003a: stloc.0
+	IL_003b: br IL_000a
+	IL_0040: ldc.r8 0.0
+	IL_0049: stloc.0
+	IL_004a: ldloc.0
+	IL_004b: ldc.r8 100.
+	IL_0054: cgt
+	IL_0056: ldc.i4 0x0
+	IL_005b: ceq
+	IL_005d: ldc.i4 0x1
+	IL_0062: ceq
+	IL_0064: brfalse IL_0080
+	IL_0069: ldloc.0
+	IL_006a: call void [mscorlib]System.Console::WriteLine(float64)
+	IL_006f: ldloc.0
+	IL_0070: ldc.r8 2.
+	IL_0079: add
+	IL_007a: stloc.0
+	IL_007b: br IL_004a
+	IL_0080: ldstr "Hello"
+	IL_0085: stloc.1
+	IL_0086: ldstr "Hell"
+	IL_008b: ldstr "o"
+	IL_0090: call string [mscorlib]System.String::Concat(string,string)
+	IL_0095: stloc.2
+	IL_0096: ldloc.1
+	IL_0097: ldloc.2
+	IL_0098: call int32 [mscorlib]System.String::Compare(string,string)
+	IL_009d: ldc.i4 0x0
+	IL_00a2: ceq
+	IL_00a4: ldc.i4 0x1
+	IL_00a9: ceq
+	IL_00ab: brfalse IL_00bf
+	IL_00b0: ldstr " S1 and S2 are equal "
+	IL_00b5: call void [mscorlib]System.Console::WriteLine(string)
+	IL_00ba: br IL_00bf
+	IL_00bf: ldloc.1
+	IL_00c0: ldloc.2
+	IL_00c1: call int32 [mscorlib]System.String::Compare(string,string)
+	IL_00c6: ldc.i4 0x0
+	IL_00cb: ceq
+	IL_00cd: ldc.i4 0x0
+	IL_00d2: ceq
+	IL_00d4: ldc.i4 0x1
+	IL_00d9: ceq
+	IL_00db: ldc.i4 0x0
+	IL_00e0: ceq
+	IL_00e2: ldc.i4 0x1
+	IL_00e7: ceq
+	IL_00e9: brfalse IL_00fd
+	IL_00ee: ldstr "Tested Logical Not"
+	IL_00f3: call void [mscorlib]System.Console::WriteLine(string)
+	IL_00f8: br IL_00fd
+	IL_00fd: ret
+} // end of method MainClass::Main
+\end{lstlisting}

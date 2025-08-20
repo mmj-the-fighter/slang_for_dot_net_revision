@@ -20,5 +20,5 @@ The goal is to make the book easier to **navigate, read, and reference**, especi
 ---
 
 ## 🙏 Credits
-- Original work: **SLANG4 .NET** by *[Praseed Pai K. T. ]* → [Original Repository] (https://github.com/praseedpai/SlangForDotNet)
+- Original work: **SLANG4 .NET** by *[Praseed Pai K. T. ]* → [Original Repository](https://github.com/praseedpai/SlangForDotNet)
 - Reformatted Edition: This project (non-commercial, for readability purposes) 

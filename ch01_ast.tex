@@ -109,17 +109,13 @@ public class BinaryExp : Exp
       switch (_op)
       {
          case OPERATOR.PLUS:
-            return _ex1.Evaluate(cont) 
-            + _ex2.Evaluate(cont);
+            return _ex1.Evaluate(cont) + _ex2.Evaluate(cont);
          case OPERATOR.MINUS:
-            return _ex1.Evaluate(cont) 
-            - _ex2.Evaluate(cont);
+            return _ex1.Evaluate(cont) - _ex2.Evaluate(cont);
          case OPERATOR.DIV:
-            return _ex1.Evaluate(cont) 
-            / _ex2.Evaluate(cont);
+            return _ex1.Evaluate(cont) / _ex2.Evaluate(cont);
          case OPERATOR.MUL:
-            return _ex1.Evaluate(cont) 
-            * _ex2.Evaluate(cont);
+            return _ex1.Evaluate(cont) * _ex2.Evaluate(cont);
       }
       return Double.NaN;
    }
@@ -174,21 +170,23 @@ namespace CallSLANG
       static void Main(string[] args)
       {
          // Abstract Syntax Tree (AST) for 5*10
-         Exp e = new BinaryExp(
-            new NumericConstant(5),
-            new NumericConstant(10),
-            OPERATOR.MUL);
+         Exp e = 
+		new BinaryExp(
+		new NumericConstant(5),
+          new NumericConstant(10),
+          OPERATOR.MUL);
          // Evaluate the Expression
          Console.WriteLine(e.Evaluate(null));
 
          // AST for -( (10 + (30 + 50 ) )
-         e = new UnaryExp(
-            new BinaryExp(new NumericConstant(10),
-            new BinaryExp(new NumericConstant(30),
-            new NumericConstant(50),
-               OPERATOR.PLUS),
-            OPERATOR.PLUS),
-            OPERATOR.MINUS);
+         e = 
+         new UnaryExp(
+            	new BinaryExp(new NumericConstant(10),
+	          	new BinaryExp(new NumericConstant(30),
+            		new NumericConstant(50),
+               	OPERATOR.PLUS),
+            	OPERATOR.PLUS),
+		OPERATOR.MINUS);
          // Evaluate the Expression
          Console.WriteLine(e.Evaluate(null));
 

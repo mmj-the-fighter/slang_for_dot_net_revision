@@ -1,9 +1,7 @@
 \chapter{Functions}
-This step will support Sub routine call. This will make the language useful for doing some tasks which were diffcult to acheive earlier.
+This step will support subroutine call. This will make the language useful for doing some tasks which were diffcult to acheive earlier.
 \section{Grammar}
-The Grammar for Function is
-The task of writing a compiler can be viewed in a top down fashion as shown in the diagram. Lexical analysis and parsing go together. AST stands for Abstract Syntax Tree. By walking the tree we can generate code or do interpretation.
-
+The grammar for function is:
 \lstset{style=csharp}
 \begin{lstlisting}
 <Module> ::= {<Procedure>}+;
@@ -15,7 +13,7 @@ arglist ::= '(' {} ')' | '(' <type> arg_name [, arglist ] ')'
 \end{lstlisting}
 
 \section{Return Statement}
-We need to add one more class to Stmt hierarchy. The purpose is to implment the Return Value.
+We need to add one more class to Stmt hierarchy. The purpose is to implment the return Value.
 \begin{verbatim}
 <retstmt> := Return <expr>;
 \end{verbatim}
@@ -312,8 +310,9 @@ ProcedureBuilder ParseFunction()
 
 	//-------- Assign the return type
 	p.TYPE = (Current_Token == TOKEN.TOK_VAR_BOOL) ?
-		TYPE_INFO.TYPE_BOOL : (Current_Token == TOKEN.TOK_VAR_NUMBER) ?
-		TYPE_INFO.TYPE_NUMERIC : TYPE_INFO.TYPE_STRING;
+		TYPE_INFO.TYPE_BOOL : 
+		(Current_Token == TOKEN.TOK_VAR_NUMBER) ?
+			TYPE_INFO.TYPE_NUMERIC : TYPE_INFO.TYPE_STRING;
 
 	// Parse the name of the Function call
 	GetNext();
@@ -341,8 +340,7 @@ ProcedureBuilder ParseFunction()
 	ArrayList lst = StatementList(p);
 	if (Current_Token != TOKEN.TOK_END)
 	{
-		throw new Exception(
-			"END expected");
+		throw new Exception("END expected");
 	}
 
 	// Accumulate all statements to
@@ -527,10 +525,10 @@ Print 1 to 100.
 FUNCTION BOOLEAN MAIN()
 	NUMERIC d;
 	d=0;
-	While ( d <= 100 )
+	WHILE ( d <= 100 )
 		PRINTLINE d;
 		d = d+1;
-	Wend
+	WEND
 END
 \end{lstlisting}
 \subsection{Discriminant.sl}
@@ -541,20 +539,20 @@ FUNCTION NUMERIC Quad( NUMERIC a , NUMERIC b , NUMERIC c )
 	NUMERIC n;
 	n = b*b - 4*a*c;
 	IF ( n < 0 ) THEN
-		return 0;
+		RETURN 0;
 	ELSE
 		IF ( n == 0 ) THEN
-			return 1;
+			RETURN 1;
 		ELSE
-			return 2;
+			RETURN 2;
 		ENDIF
 	ENDIF
-	return 0;
+	RETURN 0;
 END
 
 FUNCTION BOOLEAN MAIN()
 	NUMERIC d;
-	d= Quad(1,0-6,9);
+	d = Quad(1,0-6,9);
 	IF ( d == 0 ) then
 		PRINT "No Roots";
 	ELSE
@@ -577,13 +575,13 @@ FUNCTION BOOLEAN MAIN()
 	currterm = 1;
 	prevterm = 0;
 	newterm = currterm + prevterm;
-	PrintLine newterm;
-	while ( newterm < 1000 )
+	PRINTLINE newterm;
+	WHILE ( newterm < 1000 )
 		prevterm = currterm;
 		currterm = newterm;
 		newterm = currterm + prevterm;
-		PrintLine newterm;
-	wend
+		PRINTLINE newterm;
+	WEND
 END
 \end{lstlisting}
 \subsection{RecFibonacci.sl}
@@ -592,7 +590,7 @@ Recursive Fibonacci routine.
 \begin{lstlisting}
 FUNCTION NUMERIC FIB( NUMERIC n )
 	IF ( n <= 1 ) then
-		return 1;
+		RETURN 1;
 	ELSE
 		RETURN FIB(n-1) + FIB(n-2);
 	ENDIF
@@ -601,10 +599,10 @@ END
 FUNCTION BOOLEAN MAIN()
 	NUMERIC d;
 	d=0;
-	While ( d <= 10 )
+	WHILE ( d <= 10 )
 		PRINTLINE FIB(d);
-		d = d+1;
-	Wend
+		d = d + 1;
+	WEND
 END
 \end{lstlisting}
 
@@ -614,19 +612,19 @@ Recursive Routine to Print Factorial of a number.
 \begin{lstlisting}
 FUNCTION NUMERIC FACT( NUMERIC d )
 	IF ( d <= 0 ) THEN
-		return 1;
+		RETURN 1;
 	ELSE
-		return d*FACT(d-1);
+		RETURN d * FACT(d-1);
 	ENDIF
 END
 
 FUNCTION BOOLEAN MAIN()
 	NUMERIC d;
-	d=0;
-	While ( d <= 10 )
+	d = 0;
+	WHILE ( d <= 10 )
 		PRINTLINE FACT(d);
-		d = d+1;
-	Wend
+		d = d + 1;
+	WEND
 END
 \end{lstlisting}
 \section{Using SLANG utils}
@@ -645,5 +643,6 @@ SlangCompile Fibrec.sl
 \begin{verbatim}
 SLANGINTERPRET <scriptname>
 \end{verbatim}
+\section{N.B.}
 There might be some bugs in the code...that is given as a HOMEWORK for you. !!!!!!
 

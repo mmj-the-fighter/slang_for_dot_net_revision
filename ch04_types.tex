@@ -29,20 +29,11 @@ Moreover, Functions return SYMBOL\_INFO.
 // storage by simulating C/C++ union.
 public class SYMBOL_INFO
 {
-	public 
-	String SymbolName; // Symbol Name
-	
-	public 
-	TYPE_INFO Type; // Data type
-	
-	public 
-	String str_val; // memory to hold string
-	
-	public 
-	double dbl_val; // memory to hold double
-	
-	public 
-	bool bol_val; // memory to hold boolean
+	public String SymbolName; // Symbol Name
+	public TYPE_INFO Type; // Data type
+	public String str_val; // memory to hold string
+	public double dbl_val; // memory to hold double
+	public bool bol_val; // memory to hold boolean
 }
 \end{lstlisting}
 
@@ -61,8 +52,7 @@ abstract class Exp
 	public abstract 
 	TYPE_INFO TypeCheck(COMPILATION_CONTEXT cont);
 	
-	public abstract 
-	TYPE_INFO get_type();
+	public abstract TYPE_INFO get_type();
 }
 \end{lstlisting}
 
@@ -134,8 +124,7 @@ public class BooleanConstant : Exp
 	}
 
 	// Evaluation of boolean will given the value
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		return info;
 	}
@@ -168,8 +157,7 @@ public class NumericConstant : Exp
 	}
 		
 	// Evaluation of boolean will given the value
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		return info;
 	}
@@ -203,8 +191,7 @@ public class StringLiteral : Exp
 		info.Type = TYPE_INFO.TYPE_STRING;
 	}
 
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		return info;
 	}
@@ -309,8 +296,7 @@ public class Variable : Exp
 	// we just need to do a lookup
 	// in the Symbol table 
 	// ( of RUNTIME_CONTEXT )
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		if (cont.TABLE == null)
 		{
@@ -318,8 +304,7 @@ public class Variable : Exp
 		}
 		else
 		{
-			SYMBOL_INFO a = 
-				cont.TABLE.Get(m_name);
+			SYMBOL_INFO a = cont.TABLE.Get(m_name);
 			return a;
 		}
 	}
@@ -335,8 +320,7 @@ public class Variable : Exp
 		}
 		else
 		{
-			SYMBOL_INFO a = 
-				cont.TABLE.Get(m_name);
+			SYMBOL_INFO a = cont.TABLE.Get(m_name);
 			if (a != null)
 			{
 				_type = a.Type;
@@ -391,19 +375,16 @@ public class BinaryPlus : Exp
 		exp2 = e2;
 	}
 
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
-		SYMBOL_INFO eval_left 
-		= exp1.Evaluate(cont);
-		SYMBOL_INFO eval_right 
-		= exp2.Evaluate(cont);
+		SYMBOL_INFO eval_left = exp1.Evaluate(cont);
+		SYMBOL_INFO eval_right = exp2.Evaluate(cont);
 		if (eval_left.Type == TYPE_INFO.TYPE_STRING &&
 			eval_right.Type == TYPE_INFO.TYPE_STRING)
 		{
 			SYMBOL_INFO ret_val = new SYMBOL_INFO();
-			ret_val.str_val = 
-				eval_left.str_val + eval_right.str_val;
+			ret_val.str_val = eval_left.str_val 
+								+ eval_right.str_val;
 			ret_val.Type = TYPE_INFO.TYPE_STRING;
 			ret_val.SymbolName = "";
 			return ret_val;
@@ -419,10 +400,8 @@ public class BinaryPlus : Exp
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch");
+		else {
+			throw new Exception("Type mismatch");
 		}
 	}
 	
@@ -437,10 +416,8 @@ public class BinaryPlus : Exp
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else {
+			throw new Exception("Type mismatch failure");
 		}
 	}
 	
@@ -474,13 +451,13 @@ public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 			eval_right.Type == TYPE_INFO.TYPE_NUMERIC)
 	{
 		SYMBOL_INFO ret_val = new SYMBOL_INFO();
-		ret_val.dbl_val = eval_left.dbl_val + eval_right.dbl_val;
+		ret_val.dbl_val = eval_left.dbl_val 
+							+ eval_right.dbl_val;
 		ret_val.Type = TYPE_INFO.TYPE_NUMERIC;
 		ret_val.SymbolName = "";
 		return ret_val;
 	}
-	else
-	{
+	else {
 		throw new Exception("Type mismatch");
 	}
 }
@@ -505,8 +482,7 @@ class BinaryMinus : Exp
 		exp1 = e1; 
 		exp2 = e2;
 	}
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		SYMBOL_INFO eval_left = exp1.Evaluate(cont);
 		SYMBOL_INFO eval_right = exp2.Evaluate(cont);
@@ -514,14 +490,13 @@ class BinaryMinus : Exp
 			eval_right.Type == TYPE_INFO.TYPE_NUMERIC)
 		{
 			SYMBOL_INFO ret_val = new SYMBOL_INFO();
-			ret_val.dbl_val = 
-				eval_left.dbl_val - eval_right.dbl_val;
+			ret_val.dbl_val = eval_left.dbl_val 
+								- eval_right.dbl_val;
 			ret_val.Type = TYPE_INFO.TYPE_NUMERIC;
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
-		else
-		{
+		else {
 			throw new Exception("Type mismatch");
 		}
 	}
@@ -537,10 +512,8 @@ class BinaryMinus : Exp
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else{
+			throw new Exception("Type mismatch failure");
 		}
 	}
 
@@ -569,48 +542,38 @@ class Mul : Exp
 		exp2 = e2;
 	}
 	
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
-		SYMBOL_INFO eval_left = 
-			exp1.Evaluate(cont);
-		SYMBOL_INFO eval_right = 
-			exp2.Evaluate(cont);
+		SYMBOL_INFO eval_left = exp1.Evaluate(cont);
+		SYMBOL_INFO eval_right = exp2.Evaluate(cont);
 		if (eval_left.Type == TYPE_INFO.TYPE_NUMERIC &&
 			eval_right.Type == TYPE_INFO.TYPE_NUMERIC)
 		{
-			SYMBOL_INFO ret_val = 
-				new SYMBOL_INFO();
-			ret_val.dbl_val = 
-				eval_left.dbl_val * eval_right.dbl_val;
+			SYMBOL_INFO ret_val = new SYMBOL_INFO();
+			ret_val.dbl_val = eval_left.dbl_val 
+								* eval_right.dbl_val;
 			ret_val.Type = TYPE_INFO.TYPE_NUMERIC;
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch");
+		else {
+			throw new Exception("Type mismatch");
 		}
 	}
 	
 	public override TYPE_INFO 
 	TypeCheck(COMPILATION_CONTEXT cont)
 	{
-		TYPE_INFO eval_left = 
-			exp1.TypeCheck(cont);
-		TYPE_INFO eval_right = 
-			exp2.TypeCheck(cont);
+		TYPE_INFO eval_left = exp1.TypeCheck(cont);
+		TYPE_INFO eval_right = exp2.TypeCheck(cont);
 		if (eval_left == eval_right && 
 		eval_left == TYPE_INFO.TYPE_NUMERIC)
 		{
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else {
+			throw new Exception("Type mismatch failure");
 		}
 	}
 	
@@ -631,47 +594,39 @@ class Div : Exp
 		exp2 = e2;
 	}
 
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
-		SYMBOL_INFO eval_left = 
-			exp1.Evaluate(cont);
-		SYMBOL_INFO eval_right = 
-			exp2.Evaluate(cont);
+		SYMBOL_INFO eval_left = exp1.Evaluate(cont);
+		SYMBOL_INFO eval_right = exp2.Evaluate(cont);
 		if (eval_left.Type == TYPE_INFO.TYPE_NUMERIC &&
 		eval_right.Type == TYPE_INFO.TYPE_NUMERIC)
 		{
 			SYMBOL_INFO ret_val = new SYMBOL_INFO();
-			ret_val.dbl_val = 
-				eval_left.dbl_val / eval_right.dbl_val;
+			ret_val.dbl_val = eval_left.dbl_val 
+								/ eval_right.dbl_val;
 			ret_val.Type = TYPE_INFO.TYPE_NUMERIC;
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
 		else
 		{
-			throw 
-			new Exception("Type mismatch");
+			throw new Exception("Type mismatch");
 		}
 	}
 
 	public override TYPE_INFO 
 	TypeCheck(COMPILATION_CONTEXT cont)
 	{
-		TYPE_INFO eval_left = 
-			exp1.TypeCheck(cont);
-		TYPE_INFO eval_right = 
-			exp2.TypeCheck(cont);
+		TYPE_INFO eval_left = exp1.TypeCheck(cont);
+		TYPE_INFO eval_right = exp2.TypeCheck(cont);
 		if (eval_left == eval_right && 
 			eval_left == TYPE_INFO.TYPE_NUMERIC)
 		{
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else {
+			throw new Exception("Type mismatch failure");
 		}
 	}
 	
@@ -698,8 +653,7 @@ class UnaryPlus : Exp
 		exp1 = e1;
 	}
 	
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		SYMBOL_INFO 
 		eval_left = exp1.Evaluate(cont);
@@ -711,10 +665,8 @@ class UnaryPlus : Exp
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch");
+		else {
+			throw new Exception("Type mismatch");
 		}
 	}
 	
@@ -727,10 +679,8 @@ class UnaryPlus : Exp
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else {
+			throw new Exception("Type mismatch failure");
 		}
 	}
 	
@@ -752,8 +702,7 @@ class UnaryMinus : Exp
 		exp1 = e1;
 	}
 	
-	public override SYMBOL_INFO 
-	Evaluate(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Evaluate(RUNTIME_CONTEXT cont)
 	{
 		SYMBOL_INFO 
 		eval_left = exp1.Evaluate(cont);
@@ -765,27 +714,22 @@ class UnaryMinus : Exp
 			ret_val.SymbolName = "";
 			return ret_val;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch");
+		else {
+			throw new Exception("Type mismatch");
 		}
 	}
 	
 	public override TYPE_INFO 
 	TypeCheck(COMPILATION_CONTEXT cont)
 	{
-		TYPE_INFO eval_left = 
-			exp1.TypeCheck(cont);
+		TYPE_INFO eval_left = exp1.TypeCheck(cont);
 		if (eval_left == TYPE_INFO.TYPE_NUMERIC)
 		{
 			_type = eval_left;
 			return _type;
 		}
-		else
-		{
-			throw 
-			new Exception("Type mismatch failure");
+		else {
+			throw new Exception("Type mismatch failure");
 		}
 	}
 
@@ -813,8 +757,7 @@ public class VariableDeclStatement : Stmt
 		m_inf = inf;
 	}
 	
-	public override SYMBOL_INFO 
-	Execute(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Execute(RUNTIME_CONTEXT cont)
 	{
 		cont.TABLE.Add(m_inf);
 		var = new Variable(m_inf);
@@ -833,25 +776,21 @@ public class AssignmentStatement : Stmt
 {
 	private Variable variable;
 	private Exp exp1;
-	public 
-	AssignmentStatement(Variable var, Exp e)
+	public AssignmentStatement(Variable var, Exp e)
 	{
 		variable = var;
 		exp1 = e;
 	}
 	
-	public 
-	AssignmentStatement(SYMBOL_INFO var, Exp e)
+	public AssignmentStatement(SYMBOL_INFO var, Exp e)
 	{
 		variable = new Variable(var);
 		exp1 = e;
 	}
 	
-	public override SYMBOL_INFO 
-	Execute(RUNTIME_CONTEXT cont)
+	public override SYMBOL_INFO Execute(RUNTIME_CONTEXT cont)
 	{
-		SYMBOL_INFO val = 
-			exp1.Evaluate(cont);
+		SYMBOL_INFO val = exp1.Evaluate(cont);
 		cont.TABLE.Assign(variable, val);
 		return null;
 	}
@@ -876,11 +815,8 @@ The class SymbolTable is just a vector of name-value pair . The source code of t
 // Symbol Table for Parsing and Type Analysis
 public class SymbolTable
 {
-	
 	// private data structure
-
-	private System.Collections.Hashtable dt = 
-		new Hashtable();
+	private System.Collections.Hashtable dt = new Hashtable();
 
 	// Add a symbol to Symbol Table
 	public bool Add(SYMBOL_INFO s)
@@ -894,20 +830,16 @@ public class SymbolTable
 	{
 		return dt[name] as SYMBOL_INFO;
 	}
-	
+
 	// Assign to the Symbol Table
-	public void Assign(
-		Variable var, 
-		SYMBOL_INFO value)
+	public void Assign(Variable var, SYMBOL_INFO value)
 	{
 		value.SymbolName = var.GetName();
 		dt[var.GetName()] = value;
 	}
 
 	// Assign to a variable
-	public void Assign(
-		string var, 
-		SYMBOL_INFO value)
+	public void Assign(string var, SYMBOL_INFO value)
 	{
 		dt[var] = value;
 	}
@@ -1069,8 +1001,7 @@ private Stmt Statement(COMPILATION_CONTEXT ctx)
 			return retval;
 		
 		default:
-			throw 
-			new Exception("Invalid statement");
+			throw new Exception("Invalid statement");
 	}
 	return retval;
 }
@@ -1112,24 +1043,18 @@ ParseVariableDeclStatement(COMPILATION_CONTEXT ctx)
 		}
 		else
 		{
-			CSyntaxErrorLog.AddLine(
-				"; expected");
-			CSyntaxErrorLog.AddLine(
-				GetCurrentLine(SaveIndex()));
-			throw new CParserException(-100, 
-			", or ; expected", 
-			SaveIndex());
+			CSyntaxErrorLog.AddLine("; expected");
+			CSyntaxErrorLog.AddLine(GetCurrentLine(SaveIndex()));
+			throw 
+			new CParserException(-100, ", or ; expected", SaveIndex());
 		}
 	}
 	else
 	{
-		CSyntaxErrorLog.AddLine(
-			"invalid variable declaration");
-		CSyntaxErrorLog.AddLine(
-			GetCurrentLine(SaveIndex()));
-		throw new CParserException(-100, 
-		", or ; expected", 
-		SaveIndex());
+		CSyntaxErrorLog.AddLine("invalid variable declaration");
+		CSyntaxErrorLog.AddLine(GetCurrentLine(SaveIndex()));
+		throw  
+		new CParserException(-100, ", or ; expected", SaveIndex());
 	}
 }
 \end{lstlisting}
@@ -1146,13 +1071,10 @@ public Stmt ParseAssignmentStatement(COMPILATION_CONTEXT ctx)
 	SYMBOL_INFO s = ctx.TABLE.Get(variable);
 	if (s == null)
 	{
-		CSyntaxErrorLog.AddLine(
-			"Variable not found " + last_str);
-		CSyntaxErrorLog.AddLine(
-			GetCurrentLine(SaveIndex()));
+		CSyntaxErrorLog.AddLine("Variable not found " + last_str);
+		CSyntaxErrorLog.AddLine(GetCurrentLine(SaveIndex()));
 		throw 
-		new CParserException(-100, 
-		"Variable not found", SaveIndex());
+		new CParserException(-100, "Variable not found", SaveIndex());
 	}
  
 	//------------ The next token ought to be an assignment
@@ -1160,13 +1082,10 @@ public Stmt ParseAssignmentStatement(COMPILATION_CONTEXT ctx)
 	GetNext();
 	if (Current_Token != TOKEN.TOK_ASSIGN)
 	{
-		CSyntaxErrorLog.AddLine(
-			"= expected");
-		CSyntaxErrorLog.AddLine(
-			GetCurrentLine(SaveIndex()));
+		CSyntaxErrorLog.AddLine("= expected");
+		CSyntaxErrorLog.AddLine(GetCurrentLine(SaveIndex()));
 		throw 
-		new CParserException(-100, 
-			"= expected", SaveIndex());
+		new CParserException(-100, "= expected", SaveIndex());
 	}
 	//-------- Skip the token to start the expression
 	// parsing on the RHS
@@ -1175,20 +1094,14 @@ public Stmt ParseAssignmentStatement(COMPILATION_CONTEXT ctx)
 	//------------ Do the type analysis ...
 	if (exp.TypeCheck(ctx) != s.Type)
 	{
-		throw 
-		new Exception(
-			"Type mismatch in assignment");
+		throw new Exception("Type mismatch in assignment");
 	}
 	// -------------- End of statement ( ; ) is expected
 	if (Current_Token != TOKEN.TOK_SEMI)
 	{
-		CSyntaxErrorLog.AddLine(
-			"; expected");
-		CSyntaxErrorLog.AddLine(
-			GetCurrentLine(SaveIndex()));
-		throw 
-		new CParserException(-100, 
-			" ; expected", -1);
+		CSyntaxErrorLog.AddLine("; expected");
+		CSyntaxErrorLog.AddLine(GetCurrentLine(SaveIndex()));
+		throw new CParserException(-100, " ; expected", -1);
 	}
 	// return an instance of AssignmentStatement node..
 	// s => Symbol info associated with variable
@@ -1286,8 +1199,7 @@ public Exp Factor(COMPILATION_CONTEXT ctx)
 		RetValue = Expr(ctx); // Recurse
 		if (Current_Token != TOKEN.TOK_CPAREN)
 		{
-			Console.WriteLine(
-				"Missing Closing Parenthesis\n");
+			Console.WriteLine("Missing Closing Parenthesis\n");
 			throw new Exception();
 		}
 		Current_Token = GetToken();
@@ -1309,9 +1221,9 @@ public Exp Factor(COMPILATION_CONTEXT ctx)
 		// Variables
 		String str = base.last_str;
 		SYMBOL_INFO inf = ctx.TABLE.Get(str);
-		if (inf == null)
-			throw 
-			new Exception("Undefined symbol");
+		if (inf == null) {
+			throw new Exception("Undefined symbol");
+		}
 		GetNext();
 		RetValue = new Variable(inf);
 	}

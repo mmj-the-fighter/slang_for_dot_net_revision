@@ -93,15 +93,9 @@ For Boolean and String type, only \texttt{==} and \texttt{<>} are supported. The
 public override SYMBOL_INFO 
 Evaluate(RUNTIME_CONTEXT cont)
 {
-	SYMBOL_INFO eval_left 
-		= ex1.Evaluate(cont);
-	
-	SYMBOL_INFO eval_right 
-		= ex2.Evaluate(cont);
-	
-	SYMBOL_INFO ret_val 
-		= new SYMBOL_INFO();
-	
+	SYMBOL_INFO eval_left = ex1.Evaluate(cont);
+	SYMBOL_INFO eval_right = ex2.Evaluate(cont);
+	SYMBOL_INFO ret_val = new SYMBOL_INFO();
 	if (eval_left.Type 
 			== TYPE_INFO.TYPE_NUMERIC &&
 		eval_right.Type 
@@ -202,8 +196,7 @@ TypeCheck(COMPILATION_CONTEXT cont)
 		m_op == RELATION_OPERATOR.TOK_NEQ)))
 	{
 		throw new 
-		Exception(
-		"Only == amd != supported for string type ");
+		Exception("Only == and != supported for string type ");
 	}
 
 	if (eval_left == TYPE_INFO.TYPE_BOOL &&
@@ -211,8 +204,7 @@ TypeCheck(COMPILATION_CONTEXT cont)
 		m_op == RELATION_OPERATOR.TOK_NEQ)))
 	{
 		throw new 
-		Exception(
-		"Only == amd != supported for boolean type ");
+		Exception("Only == and != supported for boolean type ");
 	}
  
 	// store the operand type as well
@@ -373,9 +365,8 @@ TypeCheck(COMPILATION_CONTEXT cont)
 	}
 	else
 	{
-		throw new 
-		Exception(
-		"Wrong Type in expression");
+		throw 
+		new Exception("Wrong Type in expression");
 	}
 }
 \end{lstlisting}
@@ -464,8 +455,7 @@ class LogicalNot : Exp
 			ret_val.bol_val = !eval_left.bol_val;
 			return ret_val;
 		}
-		else
-		{
+		else {
 			return null;
 		}
 	}
@@ -479,11 +469,9 @@ class LogicalNot : Exp
 			_type = TYPE_INFO.TYPE_BOOL;
 			return _type;
 		}
-		else
-		{
-			throw new 
-			Exception(
-			"Wrong Type in expression");
+		else {
+			throw 
+			new Exception("Wrong Type in expression");
 		}
 	}
 
@@ -517,8 +505,7 @@ class LogicalNot : Exp
 		return true;
 	}
 	
-	public override TYPE_INFO get_type()
-	{
+	public override TYPE_INFO get_type() {
 		return _type;
 	}
 }
@@ -932,10 +919,8 @@ ParseWhileStatement(ProcedureBuilder pb)
 	GetNext();
 	Exp exp = BExpr(pb);
 
-	if (pb.TypeCheck(exp) != TYPE_INFO.TYPE_BOOL)
-	{
-		throw new Exception(
-		"Expects a boolean expression");
+	if (pb.TypeCheck(exp) != TYPE_INFO.TYPE_BOOL) {
+		throw new Exception("Expects a boolean expression");
 	}
 	
 	ArrayList body = StatementList(pb);

@@ -298,7 +298,7 @@ namespace SLANG_DOT_NET
 			TOKEN l_token;
 			Exp RetValue = Term();
 			while (Current_Token == TOKEN.TOK_PLUS 
-			|| Current_Token == TOKEN.TOK_SUB)
+				|| Current_Token == TOKEN.TOK_SUB)
 			{
 				l_token = Current_Token;
 				Current_Token = GetToken();
@@ -316,7 +316,7 @@ namespace SLANG_DOT_NET
 			TOKEN l_token;
 			Exp RetValue = Factor();
 			while (Current_Token == TOKEN.TOK_MUL 
-			|| Current_Token == TOKEN.TOK_DIV)
+				|| Current_Token == TOKEN.TOK_DIV)
 			{
 				l_token = Current_Token;
 				Current_Token = GetToken();
@@ -351,7 +351,7 @@ namespace SLANG_DOT_NET
 				Current_Token = GetToken();
 			}
 			else if (Current_Token == TOKEN.TOK_PLUS 
-			|| Current_Token == TOKEN.TOK_SUB)
+				|| Current_Token == TOKEN.TOK_SUB)
 			{
 				l_token = Current_Token;
 				Current_Token = GetToken();

@@ -17,11 +17,12 @@ The task of writing a compiler can be viewed in a top down fashion as shown in t
   \draw [arrow] (phase3) -- (phase4);
  \end{tikzpicture}
  \section{Source code}
- The source code of each chapter in this book and the original book is available at:
- \url{https://github.com/praseedpai/SlangForDotNet}
+ Simple Language for .NET is a progression of seven experiments. The entire source code and the original book is available at:\\
+ \url{https://github.com/praseedpai/SlangForDotNet}\\
  
-This book is availabe at: 
-\url{https://github.com/mmj-the-fighter/slang_for_dot_net_revision}
+\section{About this book}
+This is a revised version of the original book and is availabe at: \url{https://github.com/mmj-the-fighter/slang_for_dot_net_revision}\\
+Both A5(for mobiles and tablets) and A4(for desktops) versions of the book are available.
 
 \clearpage
 \section{Abstract Syntax Tree}
@@ -165,35 +166,32 @@ using System.Text;
 using SLANG_DOT_NET; // include SLANG_DOT_NET assembly
 namespace CallSLANG
 {
-   class Program
-   {
-      static void Main(string[] args)
-      {
-         // Abstract Syntax Tree (AST) for 5*10
-         Exp e = 
-		new BinaryExp(
-		new NumericConstant(5),
-          new NumericConstant(10),
-          OPERATOR.MUL);
-         // Evaluate the Expression
-         Console.WriteLine(e.Evaluate(null));
+	class Program
+	{
+		static void Main(string[] args)
+		{
+			// Abstract Syntax Tree (AST) for 5*10
+			Exp e = new BinaryExp(
+				new NumericConstant(5),
+				new NumericConstant(10),
+			OPERATOR.MUL);
+			// Evaluate the Expression
+			Console.WriteLine(e.Evaluate(null));
 
-         // AST for -( (10 + (30 + 50 ) )
-         e = 
-         new UnaryExp(
-            	new BinaryExp(new NumericConstant(10),
-	          	new BinaryExp(new NumericConstant(30),
-            		new NumericConstant(50),
-               	OPERATOR.PLUS),
-            	OPERATOR.PLUS),
-		OPERATOR.MINUS);
-         // Evaluate the Expression
-         Console.WriteLine(e.Evaluate(null));
-
-         // Pause for a key stroke
-         Console.Read();
-      }
-   } 
+			// AST for -( (10 + (30 + 50 ) )
+			e = new UnaryExp(
+					new BinaryExp(new NumericConstant(10),
+						new BinaryExp(new NumericConstant(30),
+						new NumericConstant(50),
+						OPERATOR.PLUS),
+					OPERATOR.PLUS),
+				OPERATOR.MINUS);
+			// Evaluate the Expression
+			Console.WriteLine(e.Evaluate(null));
+			// Pause for a key stroke
+			Console.Read();
+		}
+	} 
 }
 \end{lstlisting}
 \clearpage 
